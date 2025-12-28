@@ -115,6 +115,19 @@ access_key_id = your_access_key
 secret_access_key = your_secret_key
 ```
 
+## ⚠️ Known Limitations (NOT Compatible)
+
+Lite-S3 implements core S3 features but is **not** 100% compatible with the full AWS S3 spec.
+
+| Feature | Status | Impact |
+|---------|--------|--------|
+| **CopyObject** | ❌ Missing | Tools that "move" or "rename" server-side may fail (fallback: download-then-upload) |
+| **Range Requests** | ❌ Missing | Streaming video seeking won't work efficiently (downloads whole file) |
+| **Versioning** | ❌ Missing | Overwriting a file deletes the old one forever |
+| **Object ACLs** | ❌ Missing | Permissions are per-bucket; you can't make *just one file* public |
+
+Everything else (Uploads, Downloads, Deletes, Listing, Multipart Uploads) works as expected!
+
 ## 📋 Requirements
 
 - PHP 8.0+
