@@ -1,0 +1,24 @@
+# Environment
+.env
+config.php
+.installed
+
+# Storage
+WWW/storage/*
+!WWW/storage/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+error_log
+
+# Temp
+*.tmp
+*.bak

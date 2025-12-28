@@ -1,0 +1,38 @@
+RewriteEngine On
+
+# Pass Authorization header to PHP (required for Apache CGI/FastCGI)
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Route all requests to index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Security headers
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set X-XSS-Protection "1; mode=block"
+
+# PHP settings for shared hosting
+php_value upload_max_filesize 5G
+php_value post_max_size 5G
+php_value max_execution_time 43200
+php_value max_input_time 43200
+php_value memory_limit 512M
+
+# CORS headers
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, HEAD, OPTIONS, COPY"
+Header always set Access-Control-Allow-Headers "Authorization, Content-Type, x-amz-date, x-amz-content-sha256, x-amz-user-agent, x-amz-target, x-amz-copy-source"
+
+# Deny access to sensitive files
+<FilesMatch "^(config\.php|install\.php|\.installed|\.htaccess)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "\.log$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
