@@ -1,0 +1,55 @@
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+                            Preamble
+
+  The GNU General Public License is a free, copyleft license for
+software and other kinds of works.
+
+[Full GPLv3 text continues... see https://www.gnu.org/licenses/gpl-3.0.txt]
+
+==============================================================================
+
+ADDITIONAL TERMS FOR LITE-S3
+(Applicable under Section 7 of the GNU General Public License v3)
+
+Copyright (c) 2024 Nityam Sheth
+GitHub: https://github.com/nityam2007
+Project: https://github.com/nityam2007/lite-s3
+
+ATTRIBUTION REQUIREMENT:
+------------------------
+If you use, modify, or distribute this software, you must:
+
+1. Keep this copyright notice and license intact in all copies
+2. Display visible attribution to the original author in:
+   - The admin panel footer (if using the web interface)
+   - Any documentation or about page
+   - The README of any derivative works
+
+3. Include a link to the original project:
+   https://github.com/nityam2007/lite-s3
+
+COMMERCIAL USE:
+---------------
+Commercial use is permitted under GPLv3 terms, provided:
+- Attribution requirements above are followed
+- Any modifications are also released under GPLv3
+- Source code of modifications is made available
+
+SUMMARY:
+--------
+✓ You CAN use this commercially
+✓ You CAN modify and distribute
+✓ You MUST keep attribution/credits
+✓ You MUST share modifications under GPLv3
+✓ You MUST make modified source available
+
+For the complete GPLv3 license text, see:
+https://www.gnu.org/licenses/gpl-3.0.txt
+
+==============================================================================

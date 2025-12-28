@@ -1,92 +1,113 @@
-# S3-Compatible Object Storage for Shared Hosting
+<div align="center">
 
-A pure PHP S3-compatible object storage system designed to run on shared hosting (cPanel).
+# 🚀 Lite-S3
 
-## Features
-- ✅ S3-compatible API (works with AWS SDK, rclone, etc.)
-- ✅ Multi-user with permissions (read/write/admin)
-- ✅ Web-based admin panel
-- ✅ Plain file storage (easy backups)
-- ✅ Supports files up to 5GB
-- ✅ Works on shared hosting (no root required)
+### S3-Compatible Object Storage for Shared Hosting
 
-## Quick Install (Shared Hosting)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![PHP Version](https://img.shields.io/badge/PHP-8.0%2B-purple.svg)](https://php.net)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-### 1. Upload Files
-Upload the `WWW` folder contents to your `public_html` or subdomain.
+*Finally, run your own S3 storage on any $5/month shared hosting!*
 
-### 2. Create Database
-In cPanel → MySQL Databases:
-- Create database: `yourusername_s3storage`
-- Create user: `yourusername_s3user`
-- Add user to database with ALL PRIVILEGES
+[Quick Start](#-quick-start) • [Features](#-features) • [Screenshots](#-screenshots) • [API Docs](#-api-usage) • [License](#-license)
 
-### 3. Run Installer
-Visit: `https://yourdomain.com/install.php`
-- Enter your database credentials
-- Click Install
-- **Delete install.php after installation!**
+</div>
 
-### 4. Login
-- URL: `https://yourdomain.com/admin/login.php`
-- Default: `admin` / `admin123`
-- **Change password immediately!**
+---
 
-## Shared Hosting Requirements
-- PHP 8.0+ with PDO MySQL
-- MySQL 5.7+ or MariaDB 10+
-- mod_rewrite enabled
-- .htaccess support
+## 🤔 What is this?
 
-### PHP Settings (add to .htaccess if needed)
-```apache
-php_value upload_max_filesize 5G
-php_value post_max_size 5G
-php_value max_execution_time 43200
-php_value memory_limit 512M
-```
+Ever wanted Amazon S3-like storage but don't want to pay AWS prices? Or maybe you're stuck on shared hosting (cPanel) and can't run MinIO or other S3 alternatives?
 
-## Using the S3 API
+**Lite-S3** is a pure PHP implementation of S3-compatible object storage. It works on any hosting that supports PHP and MySQL — yes, even that cheap shared hosting you're already paying for!
 
-### With cURL
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🔌 **S3 Compatible** | Works with AWS SDK, rclone, boto3, s3cmd |
+| 👥 **Multi-User** | Each user gets their own credentials |
+| 🔐 **Permissions** | Read / Write / Admin per bucket |
+| 📁 **Big Files** | Upload files up to 5GB |
+| 🎨 **Admin Panel** | Beautiful web UI to manage everything |
+| 💾 **Easy Backups** | Plain files + MySQL = simple backups |
+| 🏠 **Shared Hosting** | Works on cPanel, DirectAdmin, Plesk |
+
+## 📸 Screenshots
+
+<div align="center">
+
+### Dashboard
+![Dashboard](docs/screenshots/dashboard.png)
+
+### User Management
+![Users](docs/screenshots/users.png)
+
+### Bucket Management
+![Buckets](docs/screenshots/buckets.png)
+
+</div>
+
+## 🚀 Quick Start
+
+### For Shared Hosting (cPanel)
+
+1. **Download** this repo and upload `WWW/` contents to your `public_html`
+2. **Create MySQL Database** in cPanel → MySQL Databases
+3. **Run Installer** at `https://yourdomain.com/install.php`
+4. **Delete** `install.php` after setup
+5. **Login** with `admin` / `admin123` and **change password!**
+
+### For Docker (Local Testing)
+
 ```bash
-# Upload file
-curl -X PUT \
-  -H "Authorization: AWS access_key:secret_key" \
-  -T /path/to/file.txt \
-  https://yourdomain.com/bucket-name/file.txt
-
-# Download file
-curl -H "Authorization: AWS access_key:secret_key" \
-  https://yourdomain.com/bucket-name/file.txt -o file.txt
-
-# Delete file
-curl -X DELETE \
-  -H "Authorization: AWS access_key:secret_key" \
-  https://yourdomain.com/bucket-name/file.txt
+git clone https://github.com/nityam2007/lite-s3.git
+cd lite-s3
+docker-compose up -d
+# Visit http://localhost:8081/admin/login.php
 ```
 
-### With Python boto3
+## 🔧 API Usage
+
+### Upload a File
+
+```bash
+curl -X PUT \
+  -H "Authorization: AWS your_access_key:your_secret_key" \
+  -T ./myfile.txt \
+  https://yourdomain.com/my-bucket/myfile.txt
+```
+
+### Download a File
+
+```bash
+curl -H "Authorization: AWS your_access_key:your_secret_key" \
+  https://yourdomain.com/my-bucket/myfile.txt -o myfile.txt
+```
+
+### With Python (boto3)
+
 ```python
 import boto3
 
-s3 = boto3.client(
-    's3',
+s3 = boto3.client('s3',
     endpoint_url='https://yourdomain.com',
     aws_access_key_id='your_access_key',
     aws_secret_access_key='your_secret_key'
 )
 
 # Upload
-s3.upload_file('local.txt', 'bucket-name', 'remote.txt')
+s3.upload_file('local.txt', 'my-bucket', 'remote.txt')
 
-# Download
-s3.download_file('bucket-name', 'remote.txt', 'local.txt')
+# Download  
+s3.download_file('my-bucket', 'remote.txt', 'local.txt')
 ```
 
 ### With rclone
+
 ```ini
-[myS3]
+[mycloud]
 type = s3
 provider = Other
 endpoint = https://yourdomain.com
@@ -94,46 +115,50 @@ access_key_id = your_access_key
 secret_access_key = your_secret_key
 ```
 
-## File Structure
-```
-public_html/
-├── .htaccess          # URL routing & security
-├── config.php         # Generated by installer
-├── index.php          # S3 API endpoint
-├── storage/           # Object files stored here
-└── admin/
-    ├── login.php
-    ├── dashboard.php
-    ├── users.php
-    └── buckets.php
-```
+## 📋 Requirements
 
-## Security Notes
-1. Delete `install.php` after installation
-2. Change default admin password immediately
-3. Use HTTPS in production
-4. Keep `storage/` outside web root if possible
-5. Regular backups of both database and storage/
+- PHP 8.0+
+- MySQL 5.7+ or MariaDB 10+
+- `mod_rewrite` enabled
+- `.htaccess` support
 
-## Backup & Restore
+Most shared hosting plans already have all of this! 🎉
 
-### Backup
-```bash
-# Database
-mysqldump -u user -p database_name > backup.sql
+## 🔒 Security Notes
 
-# Files
-tar -czf storage_backup.tar.gz storage/
-```
+1. **Delete `install.php`** after setup
+2. **Change default password** immediately  
+3. **Use HTTPS** in production
+4. **Regular backups** of both DB and storage/
 
-### Restore
-```bash
-# Database
-mysql -u user -p database_name < backup.sql
+## 💬 Support & Links
 
-# Files
-tar -xzf storage_backup.tar.gz
-```
+- **Author:** Nityam Sheth
+- **GitHub:** [@nityam2007](https://github.com/nityam2007)
+- **Issues:** [Report bugs](https://github.com/nityam2007/lite-s3/issues)
 
-## License
-MIT License
+## 📜 License
+
+This project is licensed under **GNU GPLv3** with attribution requirements.
+
+**You can:**
+- ✅ Use commercially
+- ✅ Modify and distribute
+- ✅ Use for any purpose
+
+**You must:**
+- 📌 Keep attribution/credits visible
+- 📌 Release modifications under GPLv3
+- 📌 Link back to original project
+
+See [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Made with ❤️ by [Nityam Sheth](https://github.com/nityam2007)**
+
+*If this helped you, give it a ⭐!*
+
+</div>
