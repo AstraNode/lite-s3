@@ -1,7 +1,10 @@
 <?php
 /**
  * S3 File Size Test Script
- * Tests uploads from 1 byte to 5GB
+ * Tests uploads from 1 byte to 512MB (Hostinger shared hosting limit)
+ * 
+ * IMPORTANT: Hostinger shared hosting limits single PUT uploads to 512MB max.
+ * For files >512MB, use Multipart Upload API which splits files into chunks.
  * 
  * Usage: php s3-size-test.php [endpoint] [access_key] [secret_key]
  * Example: php s3-size-test.php https://mys3.nsheth.in admin Nityam@123
@@ -20,7 +23,8 @@ if (empty($secretKey)) {
     exit(1);
 }
 
-// Test sizes: 1B, 10B, 100B, 1KB, 10KB, 100KB, 1MB, 10MB, 50MB, 100MB, 256MB, 512MB, 1GB, 2GB, 5GB
+// Test sizes: 1B to 512MB (max for shared hosting)
+// For >512MB, use multipart upload
 $testSizes = [
     ['size' => 1, 'label' => '1B'],
     ['size' => 10, 'label' => '10B'],
@@ -34,9 +38,6 @@ $testSizes = [
     ['size' => 100 * 1024 * 1024, 'label' => '100MB'],
     ['size' => 256 * 1024 * 1024, 'label' => '256MB'],
     ['size' => 512 * 1024 * 1024, 'label' => '512MB'],
-    ['size' => 1024 * 1024 * 1024, 'label' => '1GB'],
-    ['size' => 2 * 1024 * 1024 * 1024, 'label' => '2GB'],
-    ['size' => 5 * 1024 * 1024 * 1024, 'label' => '5GB'],
 ];
 
 echo "=== S3 File Size Test ===\n";

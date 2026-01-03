@@ -1,7 +1,10 @@
 #!/bin/bash
 #
 # S3 File Size Test Script (Bash Version)
-# Tests uploads from 1 byte to 5GB
+# Tests uploads from 1 byte to 512MB (Hostinger shared hosting limit)
+#
+# IMPORTANT: Hostinger shared hosting limits single PUT uploads to 512MB max.
+# For files >512MB, use Multipart Upload API which splits files into chunks.
 #
 # Usage: ./s3-size-test.sh [endpoint] [access_key] [secret_key]
 # Example: ./s3-size-test.sh https://mys3.nsheth.in admin MyPassword123
@@ -19,7 +22,7 @@ if [ -z "$SECRET_KEY" ]; then
     exit 1
 fi
 
-# Test sizes in bytes
+# Test sizes in bytes (max 512MB for shared hosting)
 declare -a SIZES=(
     "1:1B"
     "10:10B"
@@ -33,9 +36,6 @@ declare -a SIZES=(
     "104857600:100MB"
     "268435456:256MB"
     "536870912:512MB"
-    "1073741824:1GB"
-    "2147483648:2GB"
-    "5368709120:5GB"
 )
 
 echo "=== S3 File Size Test ==="
