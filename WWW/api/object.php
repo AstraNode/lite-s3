@@ -244,7 +244,7 @@ class ObjectAPI {
     }
     
     /**
-     * Put object
+     * Put object - uses streaming for large files to avoid memory issues
      */
     public function put($bucketName, $objectKey, $user) {
         try {
@@ -270,27 +270,57 @@ class ObjectAPI {
                 }
             }
             
-            // Read content from input
-            $content = file_get_contents('php://input');
+            // Use streaming to handle large files without memory issues
+            $input = fopen('php://input', 'rb');
+            $output = fopen($filePath, 'wb');
             
-            // Validate Content-MD5 if provided
+            if (!$input || !$output) {
+                if ($input) fclose($input);
+                if ($output) fclose($output);
+                S3Response::error(S3ErrorCodes::INTERNAL_ERROR, 'Failed to open streams');
+                return;
+            }
+            
+            // Stream copy with MD5 calculation
+            $md5Context = hash_init('md5');
+            $size = 0;
+            $chunkSize = 8192 * 16; // 128KB chunks for efficiency
+            
+            // Get Content-MD5 for validation if provided
             $contentMD5 = $_SERVER['HTTP_CONTENT_MD5'] ?? null;
+            
+            while (!feof($input)) {
+                $chunk = fread($input, $chunkSize);
+                if ($chunk === false) break;
+                
+                $written = fwrite($output, $chunk);
+                if ($written === false) {
+                    fclose($input);
+                    fclose($output);
+                    @unlink($filePath);
+                    S3Response::error(S3ErrorCodes::INTERNAL_ERROR, 'Failed to write file');
+                    return;
+                }
+                
+                hash_update($md5Context, $chunk);
+                $size += strlen($chunk);
+            }
+            
+            fclose($input);
+            fclose($output);
+            
+            $etag = hash_final($md5Context);
+            
+            // Validate Content-MD5 if provided (base64 of binary MD5)
             if ($contentMD5) {
-                $calculatedMD5 = base64_encode(md5($content, true));
+                $calculatedMD5 = base64_encode(hex2bin($etag));
                 if ($calculatedMD5 !== $contentMD5) {
+                    @unlink($filePath);
                     S3Response::error(S3ErrorCodes::BAD_DIGEST, 'Content-MD5 mismatch');
                     return;
                 }
             }
             
-            // Write file
-            if (file_put_contents($filePath, $content) === false) {
-                S3Response::error(S3ErrorCodes::INTERNAL_ERROR, 'Failed to write file');
-                return;
-            }
-            
-            $size = strlen($content);
-            $etag = md5($content);
             $mimeType = getMimeType($objectKey);
             
             // Upsert object metadata
