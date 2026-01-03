@@ -540,15 +540,22 @@ class ObjectAPI {
             }
             
             // Store part to disk: /uploads/multipart/<uploadId>/<partNumber>
-            $partsDir = (defined('UPLOAD_PATH') ? UPLOAD_PATH : STORAGE_PATH . '../uploads/') . 'multipart/' . $uploadId;
+            // Use consistent path construction with completeMultipartUpload
+            $uploadPath = defined('UPLOAD_PATH') ? rtrim(UPLOAD_PATH, '/') : rtrim(STORAGE_PATH, '/') . '/../uploads';
+            $partsDir = $uploadPath . '/multipart/' . $uploadId;
+            
+            error_log("UploadPart: partsDir=$partsDir");
+            
             if (!is_dir($partsDir)) {
                 if (!@mkdir($partsDir, 0755, true) && !is_dir($partsDir)) {
+                    error_log("UploadPart: Failed to create directory: $partsDir");
                     S3Response::error(S3ErrorCodes::INTERNAL_ERROR, 'Failed to create upload parts directory');
                     return;
                 }
             }
             
             $partPath = $partsDir . '/' . sprintf('%06d', (int)$partNumber);
+            error_log("UploadPart: partPath=$partPath");
             
             // Stream input directly to file (no security scan for parts - they're binary chunks)
             $input = fopen('php://input', 'rb');
@@ -575,7 +582,7 @@ class ObjectAPI {
             
             $etag = md5_file($partPath);
             
-            error_log("UploadPart: Stored part $partNumber, size=$size, etag=$etag");
+            error_log("UploadPart: Stored part $partNumber at $partPath, size=$size, etag=$etag");
             
             http_response_code(200);
             header('ETag: "' . $etag . '"');
@@ -591,6 +598,8 @@ class ObjectAPI {
      */
     public function completeMultipartUpload($bucketName, $objectKey, $user, $uploadId) {
         try {
+            error_log("CompleteMultipartUpload: bucket=$bucketName, key=$objectKey, uploadId=$uploadId");
+            
             // Verify upload exists
             $stmt = $this->pdo->prepare("SELECT id FROM multipart_uploads WHERE upload_id = ? AND user_id = ?");
             $stmt->execute([$uploadId, $user['id']]);
@@ -600,38 +609,79 @@ class ObjectAPI {
                 return;
             }
             
-            // Get parts directory
-            $uploadPath = defined('UPLOAD_PATH') ? UPLOAD_PATH : sys_get_temp_dir();
+            // Get parts directory - must match uploadPart path exactly
+            $uploadPath = defined('UPLOAD_PATH') ? rtrim(UPLOAD_PATH, '/') : rtrim(STORAGE_PATH, '/') . '/../uploads';
             $partsDir = $uploadPath . '/multipart/' . $uploadId;
             
+            error_log("CompleteMultipartUpload: partsDir=$partsDir");
+            
             if (!is_dir($partsDir)) {
+                error_log("CompleteMultipartUpload: Parts directory not found: $partsDir");
                 S3Response::error(S3ErrorCodes::INTERNAL_ERROR, 'Upload parts not found');
+                return;
+            }
+            
+            // List parts
+            $parts = glob($partsDir . '/*');
+            sort($parts, SORT_NATURAL);
+            error_log("CompleteMultipartUpload: Found " . count($parts) . " parts: " . implode(', ', array_map('basename', $parts)));
+            
+            if (empty($parts)) {
+                error_log("CompleteMultipartUpload: No parts found in $partsDir");
+                S3Response::error(S3ErrorCodes::INTERNAL_ERROR, 'No upload parts found');
                 return;
             }
             
             // Concatenate parts
             $bucket = $this->getBucket($bucketName, $user, 'write');
+            if (!$bucket) {
+                S3Response::error(S3ErrorCodes::NO_SUCH_BUCKET, null, null, ['BucketName' => $bucketName]);
+                return;
+            }
+            
             $finalPath = STORAGE_PATH . $bucketName . '/' . $objectKey;
             $finalDir = dirname($finalPath);
+            
+            error_log("CompleteMultipartUpload: finalPath=$finalPath");
             
             if (!is_dir($finalDir)) {
                 @mkdir($finalDir, 0755, true);
             }
             
             $final = fopen($finalPath, 'wb');
-            $parts = glob($partsDir . '/*');
-            sort($parts, SORT_NATURAL);
+            if (!$final) {
+                error_log("CompleteMultipartUpload: Failed to open final file: $finalPath");
+                S3Response::error(S3ErrorCodes::INTERNAL_ERROR, 'Failed to create final object');
+                return;
+            }
             
+            $totalSize = 0;
             foreach ($parts as $part) {
+                $partSize = filesize($part);
+                error_log("CompleteMultipartUpload: Concatenating part " . basename($part) . " ($partSize bytes)");
                 $in = fopen($part, 'rb');
-                stream_copy_to_stream($in, $final);
-                fclose($in);
+                if ($in) {
+                    $copied = stream_copy_to_stream($in, $final);
+                    $totalSize += $copied;
+                    fclose($in);
+                } else {
+                    error_log("CompleteMultipartUpload: Failed to open part: $part");
+                }
             }
             fclose($final);
+            
+            error_log("CompleteMultipartUpload: Total size after concatenation: $totalSize bytes");
             
             $etag = md5_file($finalPath);
             $size = filesize($finalPath);
             $mimeType = getMimeType($objectKey);
+            
+            error_log("CompleteMultipartUpload: Final file size=$size, etag=$etag");
+            
+            // For large files, get fresh DB connection
+            if ($size > 10 * 1024 * 1024) {
+                $this->pdo = getDB(true);
+            }
             
             // Save object metadata
             $stmt = $this->pdo->prepare("
