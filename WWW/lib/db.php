@@ -21,7 +21,12 @@ if (function_exists('getDB')) {
 function getDB($forceNew = false) {
     static $pdo = null;
     
-    if ($pdo === null || $forceNew) {
+    // Force close old connection if requested
+    if ($forceNew && $pdo !== null) {
+        $pdo = null;
+    }
+    
+    if ($pdo === null) {
         // First, try to load from config.php if it exists
         $configFile = dirname(__DIR__) . '/config.php';
         if (file_exists($configFile)) {
@@ -44,17 +49,22 @@ function getDB($forceNew = false) {
             PDO::ATTR_STRINGIFY_FETCHES => false,
         ];
         
-        // Add persistent connections option if enabled
-        if (defined('DB_PERSISTENT') && DB_PERSISTENT) {
+        // NEVER use persistent connections for large file uploads
+        // Persistent connections can return stale/dead connections from pool
+        if ($forceNew) {
+            $options[PDO::ATTR_PERSISTENT] = false;
+        } elseif (defined('DB_PERSISTENT') && DB_PERSISTENT) {
             $options[PDO::ATTR_PERSISTENT] = true;
         }
         
         try {
+            error_log("DB: Creating " . ($forceNew ? "fresh" : "new") . " connection to $host:$port/$name");
             $pdo = new PDO($dsn, $user, $pass, $options);
             
             // Set additional MySQL-specific options
             $pdo->exec("SET time_zone = '+00:00'");
             $pdo->exec("SET sql_mode = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
+            error_log("DB: Connection established successfully");
             
         } catch (PDOException $e) {
             // Log the error but don't expose connection details

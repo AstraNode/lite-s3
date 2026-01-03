@@ -228,15 +228,32 @@ class ObjectStorage {
             $etag = md5_file($storagePath);
             error_log("Storage: Calculated ETag: $etag");
             
-            // For large files (>10MB), always get a fresh DB connection
-            // MySQL wait_timeout can close connections during long uploads
+            // For large files (>10MB), always create a fresh DB connection
+            // MySQL wait_timeout closes idle connections during long uploads
+            // Do NOT reuse the old $this->pdo as it's already dead
             if ($fileSize > 10 * 1024 * 1024) {
-                error_log("Storage: Large file detected, getting fresh DB connection");
-                $this->pdo = getDB(true); // Force new connection
+                error_log("Storage: Large file ($fileSize bytes), creating fresh DB connection");
+                // Create a completely new PDO connection directly
+                $configFile = dirname(__DIR__) . '/config.php';
+                if (file_exists($configFile)) {
+                    require_once $configFile;
+                }
+                $host = defined('DB_HOST') ? DB_HOST : 'localhost';
+                $name = defined('DB_NAME') ? DB_NAME : 's3_storage';
+                $user = defined('DB_USER') ? DB_USER : 'root';
+                $pass = defined('DB_PASS') ? DB_PASS : '';
+                $port = defined('DB_PORT') ? DB_PORT : '3306';
+                $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
+                $this->pdo = new PDO($dsn, $user, $pass, [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_PERSISTENT => false
+                ]);
+                error_log("Storage: Fresh DB connection created successfully");
             }
             
             // Save metadata with retry on failure
-            $maxRetries = 2;
+            $maxRetries = 3;
             $lastError = null;
             for ($retry = 0; $retry < $maxRetries; $retry++) {
                 try {
@@ -250,18 +267,25 @@ class ObjectStorage {
                             created_at = VALUES(created_at)
                     ");
                     $stmt->execute([$bucketId, $objectKey, $fileSize, $mimeType, $etag]);
+                    error_log("Storage: Metadata saved on attempt " . ($retry + 1));
+                    $lastError = null;
                     break; // Success, exit retry loop
                 } catch (PDOException $e) {
                     $lastError = $e;
                     error_log("Storage: DB error on attempt " . ($retry + 1) . ": " . $e->getMessage());
                     if ($retry < $maxRetries - 1) {
-                        // Reconnect and retry
-                        $this->pdo = getDB(true);
+                        // Create completely fresh connection for retry
+                        sleep(1); // Brief pause before retry
+                        $this->pdo = new PDO($dsn ?? "mysql:host=localhost;dbname=s3_storage;charset=utf8mb4", 
+                                            $user ?? 'root', $pass ?? '', [
+                            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                            PDO::ATTR_PERSISTENT => false
+                        ]);
                     }
                 }
             }
             
-            if ($lastError && $retry >= $maxRetries) {
+            if ($lastError) {
                 throw $lastError;
             }
             
