@@ -243,8 +243,13 @@ function handleS3Routes($path, $s3api) {
         
         switch ($method) {
             case 'PUT':
-                // Put object
-                $s3api->putObject($bucketName, $objectKey, $user);
+                // Check for multipart upload part first
+                if (isset($_GET['partNumber']) && isset($_GET['uploadId'])) {
+                    $s3api->uploadPart($bucketName, $objectKey, $user, $_GET['uploadId'], $_GET['partNumber']);
+                } else {
+                    // Regular put object
+                    $s3api->putObject($bucketName, $objectKey, $user);
+                }
                 break;
                 
             case 'GET':
