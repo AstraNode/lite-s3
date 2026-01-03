@@ -59,10 +59,38 @@ class ObjectStorage {
             return true;
         }
         
+        // Skip scanning for binary files (random data like multipart chunks)
+        // Only scan text-based files that could contain executable code
+        $extension = strtolower(pathinfo($objectKey, PATHINFO_EXTENSION));
+        $textExtensions = ['php', 'phtml', 'htm', 'html', 'js', 'css', 'txt', 'xml', 'json', 'svg'];
+        
+        // Check if it's a binary file by extension
+        $binaryExtensions = ['bin', 'dat', 'exe', 'dll', 'so', 'zip', 'tar', 'gz', 'rar', '7z', 
+                            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'mp3', 'mp4', 'avi', 'mkv',
+                            'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+        
+        if (in_array($extension, $binaryExtensions)) {
+            // Still block dangerous extensions even for binary
+            if (in_array($extension, self::$dangerousExtensions)) {
+                error_log("Security: Blocked dangerous extension: $objectKey");
+                return false;
+            }
+            // Skip content scan for known binary formats
+            return true;
+        }
+        
         // Read first 8KB to check for PHP code
         $content = file_get_contents($filePath, false, null, 0, 8192);
         
-        // Check for PHP tags
+        // Check if content looks like binary (has null bytes or high ratio of non-printable chars)
+        $nullBytes = substr_count($content, "\0");
+        if ($nullBytes > 10) {
+            // Likely binary data, skip PHP pattern check
+            error_log("Storage: Skipping PHP scan for binary content in: $objectKey");
+            return true;
+        }
+        
+        // Check for PHP tags only in text-like content
         $phpPatterns = ['<?php', '<?=', '<script language="php"', '<%'];
         foreach ($phpPatterns as $pattern) {
             if (stripos($content, $pattern) !== false) {

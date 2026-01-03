@@ -524,6 +524,69 @@ class ObjectAPI {
     }
     
     /**
+     * Upload a part for multipart upload
+     */
+    public function uploadPart($bucketName, $objectKey, $user, $uploadId, $partNumber) {
+        try {
+            error_log("UploadPart: bucket=$bucketName, key=$objectKey, uploadId=$uploadId, part=$partNumber");
+            
+            // Verify upload exists
+            $stmt = $this->pdo->prepare("SELECT id FROM multipart_uploads WHERE upload_id = ? AND user_id = ?");
+            $stmt->execute([$uploadId, $user['id']]);
+            
+            if (!$stmt->fetch()) {
+                S3Response::error(S3ErrorCodes::NO_SUCH_UPLOAD, 'The specified multipart upload does not exist');
+                return;
+            }
+            
+            // Store part to disk: /uploads/multipart/<uploadId>/<partNumber>
+            $partsDir = (defined('UPLOAD_PATH') ? UPLOAD_PATH : STORAGE_PATH . '../uploads/') . 'multipart/' . $uploadId;
+            if (!is_dir($partsDir)) {
+                if (!@mkdir($partsDir, 0755, true) && !is_dir($partsDir)) {
+                    S3Response::error(S3ErrorCodes::INTERNAL_ERROR, 'Failed to create upload parts directory');
+                    return;
+                }
+            }
+            
+            $partPath = $partsDir . '/' . sprintf('%06d', (int)$partNumber);
+            
+            // Stream input directly to file (no security scan for parts - they're binary chunks)
+            $input = fopen('php://input', 'rb');
+            $output = fopen($partPath, 'wb');
+            
+            if (!$input || !$output) {
+                if ($input) fclose($input);
+                if ($output) fclose($output);
+                S3Response::error(S3ErrorCodes::INTERNAL_ERROR, 'Failed to open streams');
+                return;
+            }
+            
+            // Stream copy
+            $size = 0;
+            while (!feof($input)) {
+                $chunk = fread($input, 131072); // 128KB chunks
+                if ($chunk === false) break;
+                fwrite($output, $chunk);
+                $size += strlen($chunk);
+            }
+            
+            fclose($input);
+            fclose($output);
+            
+            $etag = md5_file($partPath);
+            
+            error_log("UploadPart: Stored part $partNumber, size=$size, etag=$etag");
+            
+            http_response_code(200);
+            header('ETag: "' . $etag . '"');
+            
+        } catch (Exception $e) {
+            error_log("UploadPart error: " . $e->getMessage());
+            S3Response::error(S3ErrorCodes::INTERNAL_ERROR);
+        }
+    }
+    
+    /**
      * Complete multipart upload
      */
     public function completeMultipartUpload($bucketName, $objectKey, $user, $uploadId) {

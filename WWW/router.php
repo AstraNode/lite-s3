@@ -148,6 +148,9 @@ if (empty($bucketName)) {
         case 'PUT':
             if (isset($_GET['tagging'])) {
                 $advancedAPI->putObjectTagging($bucketName, $objectKey, $user);
+            } elseif (isset($_GET['partNumber']) && isset($_GET['uploadId'])) {
+                // Multipart upload part
+                $objectAPI->uploadPart($bucketName, $objectKey, $user, $_GET['uploadId'], $_GET['partNumber']);
             } elseif (!empty($_SERVER['HTTP_X_AMZ_COPY_SOURCE'])) {
                 // Check if this is a copy operation
                 $objectAPI->copy($bucketName, $objectKey, $user, $_SERVER['HTTP_X_AMZ_COPY_SOURCE']);
