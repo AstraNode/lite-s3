@@ -11,6 +11,7 @@ require_once __DIR__ . '/lib/s3-errors.php';
 require_once __DIR__ . '/lib/response.php';
 require_once __DIR__ . '/lib/aws-auth.php';
 require_once __DIR__ . '/lib/helpers.php';
+require_once __DIR__ . '/auth.php';
 
 // Load API modules
 require_once __DIR__ . '/api/bucket.php';

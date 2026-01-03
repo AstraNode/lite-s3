@@ -53,6 +53,15 @@ function checkRequirements() {
         ];
     }
     
+    // Check for schema.sql file (should be in same directory as install.php)
+    $schemaFile = __DIR__ . '/schema.sql';
+    $schemaExists = file_exists($schemaFile);
+    $requirements['schema_file'] = [
+        'name' => 'schema.sql found',
+        'ok' => $schemaExists,
+        'value' => $schemaExists ? 'Found in WWW/' : 'Missing! Must be in WWW/ directory'
+    ];
+    
     return $requirements;
 }
 
@@ -118,13 +127,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // ============================================================
                 // STEP 2: CREATE ALL TABLES FROM SCHEMA
                 // ============================================================
-                $schemaFile = __DIR__ . '/../schema.sql';
-                if (!file_exists($schemaFile)) {
-                    $schemaFile = dirname(__DIR__) . '/schema.sql';
-                }
+                $schemaFile = __DIR__ . '/schema.sql';
                 
                 if (!file_exists($schemaFile)) {
-                    throw new Exception("FATAL: schema.sql not found! Please ensure schema.sql exists in the project root.");
+                    throw new Exception("FATAL: schema.sql not found! Please ensure schema.sql exists in the WWW/ directory alongside install.php.");
                 }
                 
                 $schema = file_get_contents($schemaFile);
@@ -132,28 +138,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception("FATAL: schema.sql is empty!");
                 }
                 
-                // Execute each statement separately
-                $statements = array_filter(
-                    array_map('trim', explode(';', $schema)),
-                    fn($s) => !empty($s) && !preg_match('/^--/', trim($s))
-                );
+                // Remove comments and split by semicolons
+                $lines = explode("\n", $schema);
+                $cleanedSQL = '';
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    // Skip empty lines and comment-only lines
+                    if (empty($line) || substr($line, 0, 2) === '--') {
+                        continue;
+                    }
+                    $cleanedSQL .= $line . "\n";
+                }
+                
+                // Split by semicolon to get individual statements
+                $statements = explode(';', $cleanedSQL);
                 
                 $executedCount = 0;
                 foreach ($statements as $stmt) {
                     $stmt = trim($stmt);
                     if (empty($stmt)) continue;
-                    
-                    // Skip pure comment lines
-                    $lines = explode("\n", $stmt);
-                    $hasCode = false;
-                    foreach ($lines as $line) {
-                        $line = trim($line);
-                        if (!empty($line) && substr($line, 0, 2) !== '--') {
-                            $hasCode = true;
-                            break;
-                        }
-                    }
-                    if (!$hasCode) continue;
                     
                     try {
                         $pdo->exec($stmt);
@@ -209,10 +212,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception("FATAL: Admin user creation could not be verified!");
                 }
                 
-                // Generate config
-                $salt = bin2hex(random_bytes(32));
-                $escapedPass = addslashes($pass);
-                $config = "<?php
+                // ============================================================
+                // STEP 5: UPDATE OR CREATE CONFIG.PHP
+                // ============================================================
+                $configFile = __DIR__ . '/config.php';
+                $configSampleFile = __DIR__ . '/config.sample.php';
+                
+                // If config.php already exists and is comprehensive, update only DB settings
+                if (file_exists($configFile)) {
+                    $configContent = file_get_contents($configFile);
+                    
+                    // Update database configuration in existing config
+                    $configContent = preg_replace(
+                        "/define\('DB_HOST',\s*getenv\('DB_HOST'\)\s*\?:\s*\(.*?\)\);/",
+                        "define('DB_HOST', getenv('DB_HOST') ?: (\$_ENV['DB_HOST'] ?? '$host'));",
+                        $configContent
+                    );
+                    $configContent = preg_replace(
+                        "/define\('DB_NAME',\s*getenv\('DB_NAME'\)\s*\?:\s*\(.*?\)\);/",
+                        "define('DB_NAME', getenv('DB_NAME') ?: (\$_ENV['DB_NAME'] ?? '$name'));",
+                        $configContent
+                    );
+                    $configContent = preg_replace(
+                        "/define\('DB_USER',\s*getenv\('DB_USER'\)\s*\?:\s*\(.*?\)\);/",
+                        "define('DB_USER', getenv('DB_USER') ?: (\$_ENV['DB_USER'] ?? '$user'));",
+                        $configContent
+                    );
+                    $escapedPass = addslashes($pass);
+                    $configContent = preg_replace(
+                        "/define\('DB_PASS',\s*getenv\('DB_PASS'\)\s*\?:\s*\(.*?\)\);/",
+                        "define('DB_PASS', getenv('DB_PASS') ?: (\$_ENV['DB_PASS'] ?? '$escapedPass'));",
+                        $configContent
+                    );
+                    $configContent = preg_replace(
+                        "/define\('DB_PORT',\s*getenv\('DB_PORT'\)\s*\?:\s*\(.*?\)\);/",
+                        "define('DB_PORT', getenv('DB_PORT') ?: (\$_ENV['DB_PORT'] ?? '$port'));",
+                        $configContent
+                    );
+                    
+                    // Update SECRET_SALT if it's still default
+                    $salt = bin2hex(random_bytes(32));
+                    if (strpos($configContent, "'change-this-secret-salt-in-production'") !== false) {
+                        $configContent = str_replace(
+                            "'change-this-secret-salt-in-production'",
+                            "'$salt'",
+                            $configContent
+                        );
+                    }
+                    
+                    file_put_contents($configFile, $configContent);
+                    
+                } elseif (file_exists($configSampleFile)) {
+                    // Use config.sample.php as template
+                    $configContent = file_get_contents($configSampleFile);
+                    
+                    // Update database settings
+                    $configContent = preg_replace(
+                        "/define\('DB_HOST',\s*getenv\('DB_HOST'\)\s*\?:\s*\(.*?\)\);/",
+                        "define('DB_HOST', getenv('DB_HOST') ?: (\$_ENV['DB_HOST'] ?? '$host'));",
+                        $configContent
+                    );
+                    $configContent = preg_replace(
+                        "/define\('DB_NAME',\s*getenv\('DB_NAME'\)\s*\?:\s*\(.*?\)\);/",
+                        "define('DB_NAME', getenv('DB_NAME') ?: (\$_ENV['DB_NAME'] ?? '$name'));",
+                        $configContent
+                    );
+                    $configContent = preg_replace(
+                        "/define\('DB_USER',\s*getenv\('DB_USER'\)\s*\?:\s*\(.*?\)\);/",
+                        "define('DB_USER', getenv('DB_USER') ?: (\$_ENV['DB_USER'] ?? '$user'));",
+                        $configContent
+                    );
+                    $escapedPass = addslashes($pass);
+                    $configContent = preg_replace(
+                        "/define\('DB_PASS',\s*getenv\('DB_PASS'\)\s*\?:\s*\(.*?\)\);/",
+                        "define('DB_PASS', getenv('DB_PASS') ?: (\$_ENV['DB_PASS'] ?? '$escapedPass'));",
+                        $configContent
+                    );
+                    $configContent = preg_replace(
+                        "/define\('DB_PORT',\s*getenv\('DB_PORT'\)\s*\?:\s*\(.*?\)\);/",
+                        "define('DB_PORT', getenv('DB_PORT') ?: (\$_ENV['DB_PORT'] ?? '$port'));",
+                        $configContent
+                    );
+                    
+                    // Update SECRET_SALT
+                    $salt = bin2hex(random_bytes(32));
+                    $configContent = str_replace(
+                        "'change-this-secret-salt-in-production'",
+                        "'$salt'",
+                        $configContent
+                    );
+                    
+                    file_put_contents($configFile, $configContent);
+                    
+                } else {
+                    // Fallback: create minimal config
+                    $salt = bin2hex(random_bytes(32));
+                    $escapedPass = addslashes($pass);
+                    $config = "<?php
 /**
  * S3 Object Storage Configuration
  * Generated: " . date('Y-m-d H:i:s') . "
@@ -236,6 +332,8 @@ define('BASE_PATH', __DIR__ . '/');
 define('STORAGE_PATH', BASE_PATH . 'storage/');
 define('LOGS_PATH', BASE_PATH . 'logs/');
 define('UPLOADS_PATH', BASE_PATH . 'uploads/');
+define('META_PATH', BASE_PATH . 'meta/');
+define('UPLOAD_PATH', BASE_PATH . 'uploads/');
 define('MAX_FILE_SIZE', 5368709120); // 5GB
 
 // Session Settings
@@ -243,7 +341,7 @@ define('SESSION_TIMEOUT', 7200); // 2 hours
 
 // S3 API Settings
 define('S3_DEFAULT_REGION', 'us-east-1');
-define('S3_PERMISSIVE_AUTH', false);
+define('S3_PERMISSIVE_AUTH', true);
 define('S3_SIMPLE_AUTH', true);
 
 // Rate Limiting
@@ -277,18 +375,19 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Create required directories
-foreach ([STORAGE_PATH, LOGS_PATH, UPLOADS_PATH] as \$dir) {
+foreach ([STORAGE_PATH, LOGS_PATH, UPLOADS_PATH, META_PATH] as \$dir) {
     if (!is_dir(\$dir)) {
         @mkdir(\$dir, 0755, true);
     }
 }
 ";
+                    file_put_contents($configFile, $config);
+                }
                 
-                file_put_contents(__DIR__ . '/config.php', $config);
-                chmod(__DIR__ . '/config.php', 0640);
+                chmod($configFile, 0640);
                 
                 // Create directories
-                $dirs = ['storage', 'logs', 'uploads'];
+                $dirs = ['storage', 'logs', 'uploads', 'meta'];
                 foreach ($dirs as $dir) {
                     $path = __DIR__ . '/' . $dir;
                     if (!is_dir($path)) {
