@@ -228,26 +228,42 @@ class ObjectStorage {
             $etag = md5_file($storagePath);
             error_log("Storage: Calculated ETag: $etag");
             
-            // Reconnect to database - connection may have timed out during long upload
-            // MySQL wait_timeout is typically 30-60 seconds, large uploads can take longer
-            try {
-                $this->pdo->query('SELECT 1');
-            } catch (PDOException $e) {
-                error_log("Storage: Reconnecting to database after timeout");
+            // For large files (>10MB), always get a fresh DB connection
+            // MySQL wait_timeout can close connections during long uploads
+            if ($fileSize > 10 * 1024 * 1024) {
+                error_log("Storage: Large file detected, getting fresh DB connection");
                 $this->pdo = getDB(true); // Force new connection
             }
             
-            // Save metadata (MySQL upsert)
-            $stmt = $this->pdo->prepare("
-                INSERT INTO objects (bucket_id, object_key, size, mime_type, etag, created_at)
-                VALUES (?, ?, ?, ?, ?, NOW())
-                ON DUPLICATE KEY UPDATE
-                    size = VALUES(size),
-                    mime_type = VALUES(mime_type),
-                    etag = VALUES(etag),
-                    created_at = VALUES(created_at)
-            ");
-            $stmt->execute([$bucketId, $objectKey, $fileSize, $mimeType, $etag]);
+            // Save metadata with retry on failure
+            $maxRetries = 2;
+            $lastError = null;
+            for ($retry = 0; $retry < $maxRetries; $retry++) {
+                try {
+                    $stmt = $this->pdo->prepare("
+                        INSERT INTO objects (bucket_id, object_key, size, mime_type, etag, created_at)
+                        VALUES (?, ?, ?, ?, ?, NOW())
+                        ON DUPLICATE KEY UPDATE
+                            size = VALUES(size),
+                            mime_type = VALUES(mime_type),
+                            etag = VALUES(etag),
+                            created_at = VALUES(created_at)
+                    ");
+                    $stmt->execute([$bucketId, $objectKey, $fileSize, $mimeType, $etag]);
+                    break; // Success, exit retry loop
+                } catch (PDOException $e) {
+                    $lastError = $e;
+                    error_log("Storage: DB error on attempt " . ($retry + 1) . ": " . $e->getMessage());
+                    if ($retry < $maxRetries - 1) {
+                        // Reconnect and retry
+                        $this->pdo = getDB(true);
+                    }
+                }
+            }
+            
+            if ($lastError && $retry >= $maxRetries) {
+                throw $lastError;
+            }
             
             return [
                 'success' => true,
