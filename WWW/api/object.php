@@ -323,6 +323,14 @@ class ObjectAPI {
             
             $mimeType = getMimeType($objectKey);
             
+            // Reconnect to database - connection may have timed out during long upload
+            try {
+                $this->pdo->query('SELECT 1');
+            } catch (PDOException $e) {
+                error_log("ObjectAPI: Reconnecting to database after timeout");
+                $this->pdo = getDB(true); // Force new connection
+            }
+            
             // Upsert object metadata
             $stmt = $this->pdo->prepare("SELECT id FROM objects WHERE bucket_id = ? AND object_key = ?");
             $stmt->execute([$bucket['id'], $objectKey]);

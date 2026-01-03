@@ -228,6 +228,15 @@ class ObjectStorage {
             $etag = md5_file($storagePath);
             error_log("Storage: Calculated ETag: $etag");
             
+            // Reconnect to database - connection may have timed out during long upload
+            // MySQL wait_timeout is typically 30-60 seconds, large uploads can take longer
+            try {
+                $this->pdo->query('SELECT 1');
+            } catch (PDOException $e) {
+                error_log("Storage: Reconnecting to database after timeout");
+                $this->pdo = getDB(true); // Force new connection
+            }
+            
             // Save metadata (MySQL upsert)
             $stmt = $this->pdo->prepare("
                 INSERT INTO objects (bucket_id, object_key, size, mime_type, etag, created_at)

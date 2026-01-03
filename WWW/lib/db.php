@@ -14,13 +14,14 @@ if (function_exists('getDB')) {
 /**
  * Get PDO database connection instance (singleton pattern)
  * 
+ * @param bool $forceNew Force a new connection (useful after long operations)
  * @return PDO
  * @throws PDOException on connection failure
  */
-function getDB() {
+function getDB($forceNew = false) {
     static $pdo = null;
     
-    if ($pdo === null) {
+    if ($pdo === null || $forceNew) {
         // First, try to load from config.php if it exists
         $configFile = dirname(__DIR__) . '/config.php';
         if (file_exists($configFile)) {
