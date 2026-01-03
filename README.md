@@ -36,6 +36,10 @@ Ever wanted Amazon S3-like storage but don't want to pay AWS prices? Or maybe yo
 | 🎨 **Admin Panel** | Beautiful web UI to manage everything |
 | 💾 **Easy Backups** | Plain files + MySQL = simple backups |
 | 🏠 **Shared Hosting** | Works on cPanel, DirectAdmin, Plesk |
+| 🏷️ **Tagging** | Object & bucket tagging support |
+| 🔄 **Lifecycle** | Bucket lifecycle rules & policies |
+| 🌐 **CORS** | Full CORS configuration per bucket |
+| 📦 **Batch Ops** | DeleteObjects batch delete API |
 
 ## 📸 Screenshots
 
@@ -210,7 +214,14 @@ Lite-S3 implements core S3 features but is **not** 100% compatible with the full
 | **Multipart Uploads** | ✅ Complete | Full support |
 | **Rate Limiting** | ✅ Complete | Configurable limits |
 | **Security Scanning** | ✅ Complete | Blocks dangerous files |
-| **Versioning** | ❌ Missing | Overwrites delete old |
+| **DeleteObjects (Batch)** | ✅ Complete | Delete multiple objects in one request |
+| **Object Tagging** | ✅ Complete | GET/PUT/DELETE object tags |
+| **Bucket Tagging** | ✅ Complete | GET/PUT/DELETE bucket tags |
+| **Bucket CORS** | ✅ Complete | Full CORS configuration |
+| **Bucket Lifecycle** | ✅ Complete | Expiration & transition rules |
+| **Bucket Versioning** | ✅ Complete | Enable/disable versioning |
+| **Bucket Policies** | ✅ Complete | JSON IAM-style policies |
+| **Object Metadata** | ✅ Complete | x-amz-meta-* headers |
 | **Object ACLs** | ❌ Missing | Bucket-level only |
 
 ## 📋 Requirements

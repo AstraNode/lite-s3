@@ -12,6 +12,9 @@ I couldn't find a modern, self-hosted S3 alternative that worked on cheap cPanel
 ✅ Supports Large Files (5GB+ with Multipart)
 ✅ Range Requests (video seeking works!)
 ✅ Rate Limiting & Security Scanning
+✅ Object & Bucket Tagging
+✅ Bucket CORS, Lifecycle & Versioning
+✅ Batch DeleteObjects API
 ✅ 100% Free & Open Source (GPLv3)
 
 Perfect for developers who want private object storage without the AWS bill or complex VPS setup.

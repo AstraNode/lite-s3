@@ -52,13 +52,18 @@ It implements the *Core CRUD* operations that 95% of apps use:
 *   `CreateBucket` / `DeleteBucket`
 
 It's **missing** things like:
-*   Object Versioning
 *   Object-level ACLs (permissions are per-bucket)
 
 But it **does support**:
 *   ✅ Range Requests (byte-range downloads for video seeking)
 *   ✅ CopyObject (server-side copy between buckets)
 *   ✅ Multipart Uploads (for large files)
+*   ✅ DeleteObjects (batch delete multiple objects)
+*   ✅ Object & Bucket Tagging
+*   ✅ Bucket CORS Configuration
+*   ✅ Bucket Lifecycle Policies
+*   ✅ Bucket Versioning
+*   ✅ Object Metadata (x-amz-meta-* headers)
 
 For "I need a place to dump my backups/images via API," it works perfectly.
 

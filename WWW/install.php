@@ -79,42 +79,134 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
                 ]);
                 
-                // Create tables from schema
+                // ============================================================
+                // STEP 1: DROP ALL EXISTING TABLES (in correct order due to FKs)
+                // ============================================================
+                $dropOrder = [
+                    'access_logs',
+                    'bucket_policies',
+                    'bucket_notifications',
+                    'object_versions',
+                    'bucket_lifecycle',
+                    'bucket_cors',
+                    'bucket_tags',
+                    'object_tags',
+                    'object_metadata',
+                    'login_attempts',
+                    'security_logs',
+                    'rate_limits',
+                    'multipart_uploads',
+                    'permissions',
+                    'objects',
+                    'buckets',
+                    'users'
+                ];
+                
+                // Disable FK checks for clean drop
+                $pdo->exec("SET FOREIGN_KEY_CHECKS = 0");
+                
+                foreach ($dropOrder as $table) {
+                    try {
+                        $pdo->exec("DROP TABLE IF EXISTS `$table`");
+                    } catch (PDOException $e) {
+                        throw new Exception("FAILED to drop table '$table': " . $e->getMessage());
+                    }
+                }
+                
+                $pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
+                
+                // ============================================================
+                // STEP 2: CREATE ALL TABLES FROM SCHEMA
+                // ============================================================
                 $schemaFile = __DIR__ . '/../schema.sql';
                 if (!file_exists($schemaFile)) {
                     $schemaFile = dirname(__DIR__) . '/schema.sql';
                 }
                 
-                if (file_exists($schemaFile)) {
-                    $schema = file_get_contents($schemaFile);
-                    // Execute each statement separately
-                    $statements = array_filter(
-                        array_map('trim', explode(';', $schema)),
-                        fn($s) => !empty($s) && !preg_match('/^--/', trim($s))
-                    );
-                    foreach ($statements as $stmt) {
-                        if (!empty(trim($stmt))) {
-                            $pdo->exec($stmt);
+                if (!file_exists($schemaFile)) {
+                    throw new Exception("FATAL: schema.sql not found! Please ensure schema.sql exists in the project root.");
+                }
+                
+                $schema = file_get_contents($schemaFile);
+                if (empty($schema)) {
+                    throw new Exception("FATAL: schema.sql is empty!");
+                }
+                
+                // Execute each statement separately
+                $statements = array_filter(
+                    array_map('trim', explode(';', $schema)),
+                    fn($s) => !empty($s) && !preg_match('/^--/', trim($s))
+                );
+                
+                $executedCount = 0;
+                foreach ($statements as $stmt) {
+                    $stmt = trim($stmt);
+                    if (empty($stmt)) continue;
+                    
+                    // Skip pure comment lines
+                    $lines = explode("\n", $stmt);
+                    $hasCode = false;
+                    foreach ($lines as $line) {
+                        $line = trim($line);
+                        if (!empty($line) && substr($line, 0, 2) !== '--') {
+                            $hasCode = true;
+                            break;
                         }
+                    }
+                    if (!$hasCode) continue;
+                    
+                    try {
+                        $pdo->exec($stmt);
+                        $executedCount++;
+                    } catch (PDOException $e) {
+                        // Extract table name if possible
+                        $tableName = 'unknown';
+                        if (preg_match('/(?:CREATE TABLE|INSERT INTO|ALTER TABLE)\s+(?:IF NOT EXISTS\s+)?`?(\w+)`?/i', $stmt, $m)) {
+                            $tableName = $m[1];
+                        }
+                        throw new Exception("FAILED at statement #$executedCount for '$tableName': " . $e->getMessage() . "\n\nSQL: " . substr($stmt, 0, 200) . "...");
                     }
                 }
                 
-                // Create admin user with hashed password and secret key
+                if ($executedCount === 0) {
+                    throw new Exception("FATAL: No SQL statements were executed from schema.sql!");
+                }
+                
+                // ============================================================
+                // STEP 3: VERIFY CRITICAL TABLES EXIST
+                // ============================================================
+                $requiredTables = ['users', 'buckets', 'objects', 'permissions'];
+                foreach ($requiredTables as $table) {
+                    $check = $pdo->query("SHOW TABLES LIKE '$table'")->fetch();
+                    if (!$check) {
+                        throw new Exception("FATAL: Required table '$table' was not created!");
+                    }
+                }
+                
+                // ============================================================
+                // STEP 4: CREATE ADMIN USER
+                // ============================================================
                 $accessKey = $adminUser;
                 $secretKey = bin2hex(random_bytes(20)); // 40 char secret key for S3 API
                 $passwordHash = password_hash($adminPass, PASSWORD_DEFAULT);
                 
-                // Check if admin exists - use access_key as the unique identifier
-                $stmt = $pdo->prepare("SELECT id FROM users WHERE access_key = ?");
+                // Delete any existing admin user first
+                $stmt = $pdo->prepare("DELETE FROM users WHERE access_key = ?");
                 $stmt->execute([$accessKey]);
-                if ($stmt->fetch()) {
-                    // Update existing user - store both the hash (for admin login) and plain secret (for S3 API)
-                    $stmt = $pdo->prepare("UPDATE users SET secret_key = ?, plain_secret_key = ?, is_admin = 1, active = 1 WHERE access_key = ?");
-                    $stmt->execute([$passwordHash, $secretKey, $accessKey]);
-                } else {
-                    // Insert new user with proper columns matching schema.sql
+                
+                // Insert fresh admin user
+                try {
                     $stmt = $pdo->prepare("INSERT INTO users (username, access_key, secret_key, plain_secret_key, is_admin, active, created_at) VALUES (?, ?, ?, ?, 1, 1, NOW())");
                     $stmt->execute([$accessKey, $accessKey, $passwordHash, $secretKey]);
+                } catch (PDOException $e) {
+                    throw new Exception("FAILED to create admin user: " . $e->getMessage());
+                }
+                
+                // Verify admin user was created
+                $stmt = $pdo->prepare("SELECT id FROM users WHERE access_key = ? AND is_admin = 1");
+                $stmt->execute([$accessKey]);
+                if (!$stmt->fetch()) {
+                    throw new Exception("FATAL: Admin user creation could not be verified!");
                 }
                 
                 // Generate config
@@ -251,7 +343,10 @@ $allOk = !in_array(false, array_column($requirements, 'ok'));
                         <h2 class="text-center mb-4">🚀 S3 Storage Installation</h2>
                         
                         <?php if ($error): ?>
-                            <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> <?= htmlspecialchars($error) ?></div>
+                            <div class="alert alert-danger">
+                                <h5><i class="bi bi-exclamation-triangle"></i> Installation Error!</h5>
+                                <pre style="white-space: pre-wrap; word-break: break-word; margin: 0; font-size: 0.85em;"><?= htmlspecialchars($error) ?></pre>
+                            </div>
                         <?php endif; ?>
                         
                         <?php if ($step == 'complete'): ?>
