@@ -2,18 +2,98 @@
 /**
  * Object Storage System
  * Handles file operations and metadata management
+ * Enhanced with security scanning and S3-compatible error handling
  */
+
+require_once __DIR__ . '/lib/s3-errors.php';
 
 class ObjectStorage {
     private $pdo;
+    
+    // Dangerous file extensions that should be blocked
+    private static $dangerousExtensions = [
+        'php', 'phtml', 'php3', 'php4', 'php5', 'php7', 'php8', 'phar',
+        'jsp', 'asp', 'aspx', 'exe', 'bat', 'cmd', 'sh', 'ps1', 'cgi',
+        'pl', 'py', 'rb', 'htaccess', 'htpasswd'
+    ];
     
     public function __construct() {
         $this->pdo = getDB();
     }
     
+    /**
+     * Validate object key for security issues
+     */
+    private function validateObjectKey($objectKey) {
+        // Check for path traversal attempts
+        if (strpos($objectKey, '..') !== false) {
+            return ['valid' => false, 'error' => 'InvalidArgument', 'message' => 'Object key contains invalid path traversal'];
+        }
+        
+        // Check for null bytes
+        if (strpos($objectKey, "\0") !== false) {
+            return ['valid' => false, 'error' => 'InvalidArgument', 'message' => 'Object key contains null bytes'];
+        }
+        
+        // Check key length (S3 limit is 1024 bytes)
+        if (strlen($objectKey) > 1024) {
+            return ['valid' => false, 'error' => 'KeyTooLongError', 'message' => 'Object key exceeds maximum length of 1024 bytes'];
+        }
+        
+        // Check for dangerous extensions if scanning is enabled
+        if (defined('SCAN_UPLOADS') && SCAN_UPLOADS) {
+            $extension = strtolower(pathinfo($objectKey, PATHINFO_EXTENSION));
+            if (in_array($extension, self::$dangerousExtensions)) {
+                return ['valid' => false, 'error' => 'InvalidArgument', 'message' => 'File type not allowed for security reasons'];
+            }
+        }
+        
+        return ['valid' => true];
+    }
+    
+    /**
+     * Scan file content for security threats
+     */
+    private function scanFileContent($filePath, $objectKey) {
+        if (!defined('SCAN_UPLOADS') || !SCAN_UPLOADS) {
+            return true;
+        }
+        
+        // Read first 8KB to check for PHP code
+        $content = file_get_contents($filePath, false, null, 0, 8192);
+        
+        // Check for PHP tags
+        $phpPatterns = ['<?php', '<?=', '<script language="php"', '<%'];
+        foreach ($phpPatterns as $pattern) {
+            if (stripos($content, $pattern) !== false) {
+                error_log("Security: PHP code detected in upload: $objectKey");
+                return false;
+            }
+        }
+        
+        // Check MIME type if restrictions are set
+        if (defined('ALLOWED_FILE_TYPES') && ALLOWED_FILE_TYPES !== ['*']) {
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mimeType = $finfo->file($filePath);
+            
+            if (!in_array($mimeType, ALLOWED_FILE_TYPES)) {
+                error_log("Security: Blocked MIME type '$mimeType' for: $objectKey");
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
     public function putObject($bucket, $objectKey, $userId) {
         try {
             error_log("Storage: PUT Object - bucket='$bucket', key='$objectKey', user=$userId");
+            
+            // Validate object key
+            $validation = $this->validateObjectKey($objectKey);
+            if (!$validation['valid']) {
+                return ['success' => false, 'error' => $validation['message'], 'code' => $validation['error']];
+            }
             
             // Ensure bucket exists
             $this->ensureBucketExists($bucket, $userId);
@@ -24,7 +104,7 @@ class ObjectStorage {
             $bucketData = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$bucketData) {
-                return ['success' => false, 'error' => 'Bucket not found'];
+                return ['success' => false, 'error' => 'Bucket not found', 'code' => 'NoSuchBucket'];
             }
             
             $bucketId = $bucketData['id'];
@@ -34,7 +114,7 @@ class ObjectStorage {
                 // Stream raw PUT to temp file to support large uploads
                 error_log("Storage: Handling raw PUT data for object '$objectKey'");
                 $input = fopen('php://input', 'rb');
-                $tempFile = tempnam(UPLOAD_PATH, 'upload_');
+                $tempFile = tempnam(defined('UPLOAD_PATH') ? UPLOAD_PATH : sys_get_temp_dir(), 'upload_');
                 $output = fopen($tempFile, 'wb');
                 stream_copy_to_stream($input, $output);
                 fclose($input);
@@ -47,7 +127,7 @@ class ObjectStorage {
                 if (isset($_FILES['file'])) {
                     $file = $_FILES['file'];
                     if ($file['error'] !== UPLOAD_ERR_OK) {
-                        return ['success' => false, 'error' => 'Upload failed'];
+                        return ['success' => false, 'error' => 'Upload failed: ' . $this->getUploadErrorMessage($file['error'])];
                     }
                     $filePath = $file['tmp_name'];
                     $fileSize = $file['size'];
@@ -55,17 +135,25 @@ class ObjectStorage {
                 } else {
                     // Handle base64 data
                     $data = $_POST['data'];
-                    $filePath = tempnam(UPLOAD_PATH, 'upload_');
+                    $tempDir = defined('UPLOAD_PATH') ? UPLOAD_PATH : sys_get_temp_dir();
+                    $filePath = tempnam($tempDir, 'upload_');
                     file_put_contents($filePath, base64_decode($data));
                     $fileSize = filesize($filePath);
                     $mimeType = $this->getMimeType($filePath, $objectKey);
                 }
             }
             
+            // Security scan the uploaded file
+            if (!$this->scanFileContent($filePath, $objectKey)) {
+                @unlink($filePath);
+                return ['success' => false, 'error' => 'File rejected by security scan', 'code' => 'InvalidArgument'];
+            }
+            
             // Check file size
-            if ($fileSize > MAX_FILE_SIZE) {
-                unlink($filePath);
-                return ['success' => false, 'error' => 'File too large'];
+            $maxSize = defined('MAX_FILE_SIZE') ? MAX_FILE_SIZE : PHP_INT_MAX;
+            if ($fileSize > $maxSize) {
+                @unlink($filePath);
+                return ['success' => false, 'error' => 'File too large', 'code' => 'EntityTooLarge'];
             }
             
             // Create storage path
@@ -265,10 +353,37 @@ class ObjectStorage {
         }
     }
     
+    /**
+     * Get human-readable upload error message
+     */
+    private function getUploadErrorMessage($errorCode) {
+        $errors = [
+            UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize directive',
+            UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE directive',
+            UPLOAD_ERR_PARTIAL => 'File was only partially uploaded',
+            UPLOAD_ERR_NO_FILE => 'No file was uploaded',
+            UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder',
+            UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+            UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the upload',
+        ];
+        
+        return $errors[$errorCode] ?? 'Unknown upload error';
+    }
+    
     private function getMimeType($filePath, $objectKey) {
+        // First try finfo for accurate detection
+        if (class_exists('finfo')) {
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->file($filePath);
+            if ($mime && $mime !== 'application/octet-stream') {
+                return $mime;
+            }
+        }
+        
+        // Fallback to mime_content_type
         if (function_exists('mime_content_type')) {
             $mime = mime_content_type($filePath);
-            if ($mime) {
+            if ($mime && $mime !== 'application/octet-stream') {
                 return $mime;
             }
         }
@@ -278,19 +393,52 @@ class ObjectStorage {
         $mimeTypes = [
             'txt' => 'text/plain',
             'html' => 'text/html',
+            'htm' => 'text/html',
             'css' => 'text/css',
             'js' => 'application/javascript',
             'json' => 'application/json',
             'xml' => 'application/xml',
             'pdf' => 'application/pdf',
+            'doc' => 'application/msword',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls' => 'application/vnd.ms-excel',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'ppt' => 'application/vnd.ms-powerpoint',
+            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
             'jpg' => 'image/jpeg',
             'jpeg' => 'image/jpeg',
             'png' => 'image/png',
             'gif' => 'image/gif',
+            'webp' => 'image/webp',
             'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
+            'bmp' => 'image/bmp',
+            'tiff' => 'image/tiff',
+            'tif' => 'image/tiff',
             'zip' => 'application/zip',
+            'rar' => 'application/x-rar-compressed',
+            '7z' => 'application/x-7z-compressed',
+            'tar' => 'application/x-tar',
+            'gz' => 'application/gzip',
             'mp4' => 'video/mp4',
-            'mp3' => 'audio/mpeg'
+            'webm' => 'video/webm',
+            'avi' => 'video/x-msvideo',
+            'mov' => 'video/quicktime',
+            'mkv' => 'video/x-matroska',
+            'mp3' => 'audio/mpeg',
+            'wav' => 'audio/wav',
+            'ogg' => 'audio/ogg',
+            'flac' => 'audio/flac',
+            'm4a' => 'audio/mp4',
+            'woff' => 'font/woff',
+            'woff2' => 'font/woff2',
+            'ttf' => 'font/ttf',
+            'otf' => 'font/otf',
+            'eot' => 'application/vnd.ms-fontobject',
+            'csv' => 'text/csv',
+            'md' => 'text/markdown',
+            'yaml' => 'text/yaml',
+            'yml' => 'text/yaml',
         ];
         
         return $mimeTypes[$extension] ?? 'application/octet-stream';

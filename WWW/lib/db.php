@@ -1,24 +1,107 @@
 <?php
 /**
  * Database Connection Module
+ * S3-Compatible Storage System
+ * 
+ * Provides singleton PDO connection with proper error handling
  */
 
+// Skip if getDB already defined (by config.php)
+if (function_exists('getDB')) {
+    return;
+}
+
+/**
+ * Get PDO database connection instance (singleton pattern)
+ * 
+ * @return PDO
+ * @throws PDOException on connection failure
+ */
 function getDB() {
     static $pdo = null;
     
     if ($pdo === null) {
-        $host = $_ENV['DB_HOST'] ?? 'mysql';
-        $name = $_ENV['DB_NAME'] ?? 's3_storage';
-        $user = $_ENV['DB_USER'] ?? 's3user';
-        $pass = $_ENV['DB_PASS'] ?? 's3pass123';
-        $port = $_ENV['DB_PORT'] ?? '3306';
+        // First, try to load from config.php if it exists
+        $configFile = dirname(__DIR__) . '/config.php';
+        if (file_exists($configFile)) {
+            require_once $configFile;
+        }
+        
+        // Check for defined constants first (from config.php), then ENV, then defaults
+        $host = defined('DB_HOST') ? DB_HOST : ($_ENV['DB_HOST'] ?? 'localhost');
+        $name = defined('DB_NAME') ? DB_NAME : ($_ENV['DB_NAME'] ?? 's3_storage');
+        $user = defined('DB_USER') ? DB_USER : ($_ENV['DB_USER'] ?? 'root');
+        $pass = defined('DB_PASS') ? DB_PASS : ($_ENV['DB_PASS'] ?? '');
+        $port = defined('DB_PORT') ? DB_PORT : ($_ENV['DB_PORT'] ?? '3306');
         
         $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
-        $pdo = new PDO($dsn, $user, $pass, [
+        
+        $options = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-        ]);
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+            PDO::ATTR_STRINGIFY_FETCHES => false,
+        ];
+        
+        // Add persistent connections option if enabled
+        if (defined('DB_PERSISTENT') && DB_PERSISTENT) {
+            $options[PDO::ATTR_PERSISTENT] = true;
+        }
+        
+        try {
+            $pdo = new PDO($dsn, $user, $pass, $options);
+            
+            // Set additional MySQL-specific options
+            $pdo->exec("SET time_zone = '+00:00'");
+            $pdo->exec("SET sql_mode = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
+            
+        } catch (PDOException $e) {
+            // Log the error but don't expose connection details
+            error_log("Database connection failed: " . $e->getMessage());
+            
+            // Re-throw with sanitized message
+            throw new PDOException("Database connection failed. Check configuration.");
+        }
     }
     
     return $pdo;
+}
+
+/**
+ * Test database connection
+ * 
+ * @return bool True if connection successful
+ */
+function testDBConnection() {
+    try {
+        $pdo = getDB();
+        $pdo->query("SELECT 1");
+        return true;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+/**
+ * Check if required tables exist
+ * 
+ * @return array Missing table names
+ */
+function checkRequiredTables() {
+    $requiredTables = ['users', 'buckets', 'objects', 'permissions'];
+    $missingTables = [];
+    
+    try {
+        $pdo = getDB();
+        foreach ($requiredTables as $table) {
+            $stmt = $pdo->query("SHOW TABLES LIKE '$table'");
+            if ($stmt->rowCount() === 0) {
+                $missingTables[] = $table;
+            }
+        }
+    } catch (Exception $e) {
+        return $requiredTables; // Return all as missing on error
+    }
+    
+    return $missingTables;
 }

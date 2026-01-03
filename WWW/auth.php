@@ -16,8 +16,30 @@ function authenticateRequest() {
         return validateQueryAuth($accessKey, $signature);
     }
     
-    // Require AWS auth header
+    // V4 presigned URL params
+    if (!empty($_GET['X-Amz-Credential'])) {
+        $credential = $_GET['X-Amz-Credential'];
+        if (preg_match('/^([^\/]+)\//', $credential, $matches)) {
+            $accessKey = $matches[1];
+            return getUserByAccessKey($accessKey);
+        }
+    }
+    
+    // Require auth header
     if (empty($authHeader)) {
+        return false;
+    }
+    
+    // Basic auth format (for simple clients like curl -u)
+    if (strpos($authHeader, 'Basic ') === 0) {
+        $encoded = substr($authHeader, 6);
+        $decoded = base64_decode($encoded);
+        if ($decoded) {
+            $parts = explode(':', $decoded, 2);
+            if (count($parts) === 2) {
+                return validateSimpleAuth($parts[0], $parts[1]);
+            }
+        }
         return false;
     }
     
@@ -84,12 +106,17 @@ function validateSimpleAuth($accessKey, $providedSecret) {
         return false;
     }
     
-    // Method 1: password_hash verification (preferred)
+    // Method 1: password_hash verification (for bcrypt hashed secret_key)
     if (password_verify($providedSecret, $user['secret_key'])) {
         return $user;
     }
     
-    // Method 2: Direct match (for legacy or plain-text secrets)
+    // Method 2: Match against plain_secret_key (for S3 API clients)
+    if (!empty($user['plain_secret_key']) && $providedSecret === $user['plain_secret_key']) {
+        return $user;
+    }
+    
+    // Method 3: Direct match with secret_key (for legacy plain-text secrets)
     if ($providedSecret === $user['secret_key']) {
         return $user;
     }
@@ -268,12 +295,14 @@ function createUserWithPassword($accessKey, $hashedSecretKey, $s3AccessKey, $s3S
             return false;
         }
         
-        // Create user with unified authentication (password_hash for both admin and S3)
-        $stmt = $pdo->prepare("INSERT INTO users (username, access_key, secret_key, is_admin) VALUES (?, ?, ?, ?)");
-        $result = $stmt->execute([$accessKey, $accessKey, $hashedSecretKey, $isAdmin ? 1 : 0]);
+        // Create user with unified authentication:
+        // - secret_key: bcrypt hash for admin panel login verification
+        // - plain_secret_key: plaintext S3 secret for AWS Signature V4 calculation
+        $stmt = $pdo->prepare("INSERT INTO users (username, access_key, secret_key, plain_secret_key, is_admin, active) VALUES (?, ?, ?, ?, ?, 1)");
+        $result = $stmt->execute([$accessKey, $s3AccessKey, $hashedSecretKey, $s3SecretKey, $isAdmin ? 1 : 0]);
         
         if ($result) {
-            error_log("User created successfully: $accessKey");
+            error_log("User created successfully: $accessKey with S3 access key: $s3AccessKey");
         }
         
         return $result;

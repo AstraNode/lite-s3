@@ -5,31 +5,50 @@ services:
     build: .
     container_name: s3-object-storage
     ports:
-      - "8081:80"
+      - "8080:80"
     volumes:
       - ./WWW:/var/www/html
+      - s3-storage-data:/var/www/html/storage
+      - s3-logs-data:/var/www/html/logs
     environment:
-      - APACHE_RUN_USER=www-data
-      - APACHE_RUN_GROUP=www-data
-      - APACHE_LOG_DIR=/var/log/apache2
-      - DB_TYPE=mysql
       - DB_HOST=mysql
       - DB_NAME=s3_storage
       - DB_USER=s3user
       - DB_PASS=s3pass123
+      - DB_PORT=3306
+      - AUTO_INIT=true
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health.php"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   mysql:
     image: mysql:8.0
     container_name: s3-mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=rootpass123
-      - MYSQL_DATABASE=s3_storage
-      - MYSQL_USER=s3user
-      - MYSQL_PASSWORD=s3pass123
+      MYSQL_ROOT_PASSWORD: rootpass123
+      MYSQL_DATABASE: s3_storage
+      MYSQL_USER: s3user
+      MYSQL_PASSWORD: s3pass123
     ports:
       - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     restart: unless-stopped
-    command: --default-authentication-plugin=mysql_native_password
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "s3user", "-ps3pass123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql-data:
+  s3-storage-data:
+  s3-logs-data:

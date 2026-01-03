@@ -4,8 +4,8 @@
  * Supports all major S3 operations with comprehensive logging
  */
 
-// S3 API Response Helper Functions
-class S3Response {
+// S3 API Response Helper Functions (renamed to avoid conflict with lib/response.php)
+class S3APIResponse {
     
     public static function success($data = null, $headers = []) {
         foreach ($headers as $key => $value) {
@@ -91,7 +91,7 @@ class S3API {
             $stmt = $this->pdo->prepare("SELECT id FROM buckets WHERE name = ?");
             $stmt->execute([$bucketName]);
             if ($stmt->fetch()) {
-                S3Response::error('BucketAlreadyExists', 'The requested bucket name is not available', 409);
+                S3APIResponse::error('BucketAlreadyExists', 'The requested bucket name is not available', 409);
                 return;
             }
             
@@ -99,7 +99,7 @@ class S3API {
             $bucketPath = STORAGE_PATH . $bucketName;
             if (!is_dir($bucketPath)) {
                 if (!mkdir($bucketPath, 0755, true)) {
-                    S3Response::error('InternalError', 'Failed to create bucket directory', 500);
+                    S3APIResponse::error('InternalError', 'Failed to create bucket directory', 500);
                     return;
                 }
             }
@@ -117,7 +117,7 @@ class S3API {
             error_log("S3 API: CreateBucket - Success for bucket='$bucketName'");
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to create bucket: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to create bucket: ' . $e->getMessage(), 500);
         }
     }
     
@@ -135,7 +135,7 @@ class S3API {
             $bucket = $stmt->fetch();
             
             if (!$bucket) {
-                S3Response::error('NoSuchBucket', 'The specified bucket does not exist', 404);
+                S3APIResponse::error('NoSuchBucket', 'The specified bucket does not exist', 404);
                 return;
             }
             
@@ -143,7 +143,7 @@ class S3API {
             $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM objects WHERE bucket_id = ?");
             $stmt->execute([$bucket['id']]);
             if ($stmt->fetchColumn() > 0) {
-                S3Response::error('BucketNotEmpty', 'The bucket you tried to delete is not empty', 409);
+                S3APIResponse::error('BucketNotEmpty', 'The bucket you tried to delete is not empty', 409);
                 return;
             }
             
@@ -165,7 +165,7 @@ class S3API {
             error_log("S3 API: DeleteBucket - Success for bucket='$bucketName'");
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to delete bucket: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to delete bucket: ' . $e->getMessage(), 500);
         }
     }
     
@@ -197,11 +197,11 @@ class S3API {
                 ];
             }
             
-            S3Response::xml('ListAllMyBucketsResult', $data);
+            S3APIResponse::xml('ListAllMyBucketsResult', $data);
             error_log("S3 API: ListBuckets - Success, found " . count($buckets) . " buckets");
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to list buckets: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to list buckets: ' . $e->getMessage(), 500);
         }
     }
     
@@ -218,15 +218,15 @@ class S3API {
             $stmt->execute([$bucketName, $user['id']]);
             
             if (!$stmt->fetch()) {
-                S3Response::error('NoSuchBucket', 'The specified bucket does not exist', 404);
+                S3APIResponse::error('NoSuchBucket', 'The specified bucket does not exist', 404);
                 return;
             }
             
-            S3Response::xml('LocationConstraint', ['LocationConstraint' => 'us-east-1']);
+            S3APIResponse::xml('LocationConstraint', ['LocationConstraint' => 'us-east-1']);
             error_log("S3 API: GetBucketLocation - Success for bucket='$bucketName'");
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to get bucket location: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to get bucket location: ' . $e->getMessage(), 500);
         }
     }
     
@@ -252,11 +252,11 @@ class S3API {
                 
                 error_log("S3 API: PutObject - Success, ETag=" . $result['etag']);
             } else {
-                S3Response::error('InternalError', $result['error'], 500);
+                S3APIResponse::error('InternalError', $result['error'], 500);
             }
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to put object: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to put object: ' . $e->getMessage(), 500);
         }
     }
     
@@ -284,11 +284,11 @@ class S3API {
                 fclose($handle);
                 error_log("S3 API: GetObject - Success, size=" . $result['size']);
             } else {
-                S3Response::error('NoSuchKey', 'The specified key does not exist', 404);
+                S3APIResponse::error('NoSuchKey', 'The specified key does not exist', 404);
             }
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to get object: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to get object: ' . $e->getMessage(), 500);
         }
     }
     
@@ -303,11 +303,11 @@ class S3API {
                 header('Content-Length: 0');
                 error_log("S3 API: DeleteObject - Success");
             } else {
-                S3Response::error('InternalError', $result['error'], 500);
+                S3APIResponse::error('InternalError', $result['error'], 500);
             }
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to delete object: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to delete object: ' . $e->getMessage(), 500);
         }
     }
     
@@ -330,7 +330,7 @@ class S3API {
             }
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to head object: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to head object: ' . $e->getMessage(), 500);
         }
     }
     
@@ -341,7 +341,7 @@ class S3API {
             // Get source object
             $sourceResult = $this->storage->getObject($sourceBucket, $sourceKey);
             if (!$sourceResult['success']) {
-                S3Response::error('NoSuchKey', 'The specified source key does not exist', 404);
+                S3APIResponse::error('NoSuchKey', 'The specified source key does not exist', 404);
                 return;
             }
             
@@ -371,18 +371,18 @@ class S3API {
                 header('ETag: "' . $etag . '"');
                 header('Last-Modified: ' . gmdate('D, d M Y H:i:s T'));
                 
-                S3Response::xml('CopyObjectResult', [
+                S3APIResponse::xml('CopyObjectResult', [
                     'ETag' => '"' . $etag . '"',
                     'LastModified' => gmdate('c')
                 ]);
                 
                 error_log("S3 API: CopyObject - Success, ETag=$etag");
             } else {
-                S3Response::error('InternalError', 'Failed to copy object', 500);
+                S3APIResponse::error('InternalError', 'Failed to copy object', 500);
             }
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to copy object: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to copy object: ' . $e->getMessage(), 500);
         }
     }
     
@@ -404,7 +404,7 @@ class S3API {
             $bucket = $stmt->fetch();
             
             if (!$bucket) {
-                S3Response::error('NoSuchBucket', 'The specified bucket does not exist', 404);
+                S3APIResponse::error('NoSuchBucket', 'The specified bucket does not exist', 404);
                 return;
             }
             
@@ -491,14 +491,14 @@ class S3API {
             }
             
             if ($listType === 2) {
-                S3Response::xml('ListBucketResult', $data);
+                S3APIResponse::xml('ListBucketResult', $data);
             } else {
-                S3Response::xml('ListBucketResult', $data);
+                S3APIResponse::xml('ListBucketResult', $data);
             }
             error_log("S3 API: ListObjects - Success, found " . count($objects) . " objects");
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to list objects: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to list objects: ' . $e->getMessage(), 500);
         }
     }
     
@@ -516,7 +516,7 @@ class S3API {
             $stmt = $this->pdo->prepare("INSERT INTO multipart_uploads (upload_id, bucket, object_key, user_id, created_at) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$uploadId, $bucketName, $objectKey, $user['id'], date('Y-m-d H:i:s')]);
             
-            S3Response::xml('InitiateMultipartUploadResult', [
+            S3APIResponse::xml('InitiateMultipartUploadResult', [
                 'Bucket' => $bucketName,
                 'Key' => $objectKey,
                 'UploadId' => $uploadId
@@ -525,7 +525,7 @@ class S3API {
             error_log("S3 API: CreateMultipartUpload - Success, UploadId=$uploadId");
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to create multipart upload: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to create multipart upload: ' . $e->getMessage(), 500);
         }
     }
     
@@ -537,7 +537,7 @@ class S3API {
             $stmt = $this->pdo->prepare("SELECT id FROM multipart_uploads WHERE upload_id = ? AND user_id = ?");
             $stmt->execute([$uploadId, $user['id']]);
             if (!$stmt->fetch()) {
-                S3Response::error('NoSuchUpload', 'The specified multipart upload does not exist', 404);
+                S3APIResponse::error('NoSuchUpload', 'The specified multipart upload does not exist', 404);
                 return;
             }
             
@@ -545,7 +545,7 @@ class S3API {
             $partsDir = UPLOAD_PATH . 'multipart/' . $uploadId;
             if (!is_dir($partsDir)) {
                 if (!@mkdir($partsDir, 0755, true) && !is_dir($partsDir)) {
-                    S3Response::error('InternalError', 'Failed to create upload parts directory', 500);
+                    S3APIResponse::error('InternalError', 'Failed to create upload parts directory', 500);
                     return;
                 }
             }
@@ -561,7 +561,7 @@ class S3API {
             error_log("S3 API: UploadPart - Stored part $partNumber for uploadId=$uploadId");
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to upload part: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to upload part: ' . $e->getMessage(), 500);
         }
     }
     
@@ -606,7 +606,7 @@ class S3API {
             @rmdir($partsDir);
             $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
             $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-            S3Response::xml('CompleteMultipartUploadResult', [
+            S3APIResponse::xml('CompleteMultipartUploadResult', [
                 'Location' => "$protocol://$host/$bucketName/$objectKey",
                 'Bucket' => $bucketName,
                 'Key' => $objectKey,
@@ -615,7 +615,7 @@ class S3API {
             error_log("S3 API: CompleteMultipartUpload - Concatenated parts, ETag=$etag");
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to complete multipart upload: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to complete multipart upload: ' . $e->getMessage(), 500);
         }
     }
     
@@ -631,7 +631,7 @@ class S3API {
             error_log("S3 API: AbortMultipartUpload - Success, UploadId=$uploadId");
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to abort multipart upload: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to abort multipart upload: ' . $e->getMessage(), 500);
         }
     }
     
@@ -656,11 +656,11 @@ class S3API {
                 ];
             }
             
-            S3Response::xml('ListMultipartUploadsResult', $data);
+            S3APIResponse::xml('ListMultipartUploadsResult', $data);
             error_log("S3 API: ListMultipartUploads - Success, found " . count($uploads) . " uploads");
             
         } catch (Exception $e) {
-            S3Response::error('InternalError', 'Failed to list multipart uploads: ' . $e->getMessage(), 500);
+            S3APIResponse::error('InternalError', 'Failed to list multipart uploads: ' . $e->getMessage(), 500);
         }
     }
     

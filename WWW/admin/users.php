@@ -82,7 +82,10 @@ if (($_POST['action'] ?? '') === 'delete_user') {
             }
             
             // Delete from database
-            $pdo->prepare("DELETE FROM objects WHERE bucket_id IN (" . implode(',', $bucketIds) . ")")->execute();
+            if (!empty($bucketIds)) {
+                $placeholders = implode(',', array_fill(0, count($bucketIds), '?'));
+                $pdo->prepare("DELETE FROM objects WHERE bucket_id IN ($placeholders)")->execute($bucketIds);
+            }
             $pdo->prepare("DELETE FROM buckets WHERE user_id = ?")->execute([$userId]);
             $pdo->prepare("DELETE FROM permissions WHERE user_id = ?")->execute([$userId]);
             $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
@@ -96,12 +99,13 @@ if (($_POST['action'] ?? '') === 'regenerate_keys') {
     $userId = (int)($_POST['user_id'] ?? 0);
     
     if ($userId) {
-        // Only regenerate secret key, keep access key (username) unchanged
-        $newSecretKey = bin2hex(random_bytes(16));
-        $hashedSecret = password_hash($newSecretKey, PASSWORD_DEFAULT);
+        // Regenerate secret key, keep access key (username) unchanged
+        $newSecretKey = bin2hex(random_bytes(16)); // Plain text S3 secret key
+        $hashedSecret = password_hash($newSecretKey, PASSWORD_DEFAULT); // For admin login
         
-        $stmt = $pdo->prepare("UPDATE users SET secret_key = ? WHERE id = ?");
-        if ($stmt->execute([$hashedSecret, $userId])) {
+        // Update both secret_key (hashed) and plain_secret_key (for AWS Sig V4)
+        $stmt = $pdo->prepare("UPDATE users SET secret_key = ?, plain_secret_key = ? WHERE id = ?");
+        if ($stmt->execute([$hashedSecret, $newSecretKey, $userId])) {
             // Get the user's access key to display
             $stmt = $pdo->prepare("SELECT access_key FROM users WHERE id = ?");
             $stmt->execute([$userId]);
