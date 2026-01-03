@@ -510,14 +510,6 @@ class AWSV4Auth {
 }
 
 /**
- * Simple function for backward compatibility
- */
-function authenticateRequest() {
-    $auth = new AWSV4Auth();
-    return $auth->authenticate();
-}
-
-/**
  * Get user by access key (utility function)
  */
 function getUserByKey($accessKey) {
