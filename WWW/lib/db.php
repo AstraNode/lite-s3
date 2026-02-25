@@ -48,6 +48,8 @@ function getDB($forceNew = false)
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::ATTR_STRINGIFY_FETCHES => false,
+            // Disable SSL verification for internal Docker connections to avoid "Certificate not trusted" errors
+            PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
         ];
 
         // NEVER use persistent connections for large file uploads
