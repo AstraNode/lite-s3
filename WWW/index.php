@@ -25,6 +25,9 @@ if (!file_exists(__DIR__ . '/.installed')) {
 
 // Otherwise, continue with the main application
 require_once 'config.php';
+require_once 'lib/db.php';
+require_once 'lib/helpers.php';
+require_once 'performance-monitor.php';
 require_once 'auth.php';
 require_once 'storage.php';
 require_once 's3-api.php';
@@ -32,23 +35,24 @@ require_once 'rate-limiter.php';
 require_once 'security.php';
 
 // Enhanced logging function with S3 operation details
-function logRequest($method, $uri, $status, $responseTime = null, $details = '') {
+function logRequest($method, $uri, $status, $responseTime = null, $details = '')
+{
     $timestamp = date('Y-m-d H:i:s');
     $clientIP = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
     $contentLength = $_SERVER['CONTENT_LENGTH'] ?? '0';
-    
+
     // Extract S3 operation details
     $s3Operation = $_SERVER['HTTP_X_AMZ_TARGET'] ?? $_GET['x-id'] ?? 'Unknown';
     $bucket = '';
     $object = '';
-    
+
     // Parse URI for bucket and object
     if (preg_match('#^/([^/]+)(?:/(.*))?$#', $uri, $matches)) {
         $bucket = $matches[1] ?? '';
         $object = $matches[2] ?? '';
     }
-    
+
     $logMessage = sprintf(
         "[%s] %s:%s [%d]: %s %s (Size: %s, Time: %sms, UA: %s) S3-OP: %s, Bucket: %s, Object: %s, Details: %s",
         $timestamp,
@@ -65,7 +69,7 @@ function logRequest($method, $uri, $status, $responseTime = null, $details = '')
         $object,
         $details
     );
-    
+
     error_log($logMessage);
 }
 
@@ -102,12 +106,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 }
 
 // Register shutdown function to log final response
-register_shutdown_function(function() use ($requestStart, $perfMonitor) {
+register_shutdown_function(function () use ($requestStart, $perfMonitor) {
     $responseTime = microtime(true) - $requestStart;
     $status = http_response_code() ?: 200;
     $method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
     $uri = $_SERVER['REQUEST_URI'] ?? '/';
-    
+
     // Get additional details
     $details = '';
     if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
@@ -122,7 +126,7 @@ register_shutdown_function(function() use ($requestStart, $perfMonitor) {
     } else {
         $details = 'No-Auth';
     }
-    
+
     // Log to both systems
     logRequest($method, $uri, $status, $responseTime, $details);
     $perfMonitor->logRequest($method, $uri, $responseTime, $status, $details);
@@ -149,9 +153,10 @@ try {
 
 // (Removed showApiInfo; root now lists buckets via handleS3Routes)
 
-function handleAdminRoutes($path) {
+function handleAdminRoutes($path)
+{
     $adminPath = str_replace('admin/', '', $path);
-    
+
     if (empty($adminPath)) {
         // Redirect to admin dashboard
         header('Location: /admin/?page=dashboard');
@@ -168,12 +173,13 @@ function handleAdminRoutes($path) {
     }
 }
 
-function handleS3Routes($path, $s3api) {
+function handleS3Routes($path, $s3api)
+{
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $parts = explode('/', $path);
-    
+
     error_log("S3 Route: Path='$path', Method=$method, Parts=" . json_encode($parts));
-    
+
     // Browser-friendly HTML view when no auth header is sent  
     $wantsHtml = isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'text/html') !== false;
     $hasAuth = !empty($_SERVER['HTTP_AUTHORIZATION']) || isset($_GET['AWSAccessKeyId']);
@@ -196,7 +202,7 @@ function handleS3Routes($path, $s3api) {
         return;
     }
     error_log("Auth: User authenticated - " . $user['access_key']);
-    
+
     // Handle different S3 operations based on path and query parameters
     if (empty($path)) {
         // List all buckets
@@ -204,18 +210,18 @@ function handleS3Routes($path, $s3api) {
     } elseif (count($parts) == 1) {
         // Single bucket operations
         $bucketName = rawurldecode($parts[0]);
-        
+
         switch ($method) {
             case 'PUT':
                 // Create bucket
                 $s3api->createBucket($bucketName, $user);
                 break;
-                
+
             case 'DELETE':
                 // Delete bucket
                 $s3api->deleteBucket($bucketName, $user);
                 break;
-                
+
             case 'GET':
                 // List objects in bucket or get bucket location
                 if (isset($_GET['location'])) {
@@ -224,12 +230,12 @@ function handleS3Routes($path, $s3api) {
                     $s3api->listObjects($bucketName, $user, $_GET);
                 }
                 break;
-                
+
             case 'HEAD':
                 // Check if bucket exists
                 $s3api->getBucketLocation($bucketName, $user);
                 break;
-                
+
             default:
                 S3Response::error('MethodNotAllowed', 'Method not allowed', 405);
         }
@@ -238,9 +244,9 @@ function handleS3Routes($path, $s3api) {
         $bucketName = rawurldecode($parts[0]);
         $decodedParts = array_map('rawurldecode', array_slice($parts, 1));
         $objectKey = implode('/', $decodedParts);
-        
+
         error_log("S3 Object Operation: Bucket='$bucketName', Key='$objectKey', Method=$method");
-        
+
         switch ($method) {
             case 'PUT':
                 // Check for multipart upload part first
@@ -251,22 +257,22 @@ function handleS3Routes($path, $s3api) {
                     $s3api->putObject($bucketName, $objectKey, $user);
                 }
                 break;
-                
+
             case 'GET':
                 // Get object
                 $s3api->getObject($bucketName, $objectKey, $user);
                 break;
-                
+
             case 'DELETE':
                 // Delete object
                 $s3api->deleteObject($bucketName, $objectKey, $user);
                 break;
-                
+
             case 'HEAD':
                 // Head object
                 $s3api->headObject($bucketName, $objectKey, $user);
                 break;
-                
+
             case 'POST':
                 // Handle multipart uploads and other POST operations
                 if (isset($_GET['uploads'])) {
@@ -285,7 +291,7 @@ function handleS3Routes($path, $s3api) {
                     $s3api->putObject($bucketName, $objectKey, $user);
                 }
                 break;
-                
+
             case 'COPY':
                 // Copy object
                 $source = $_SERVER['HTTP_X_AMZ_COPY_SOURCE'] ?? '';
@@ -300,14 +306,15 @@ function handleS3Routes($path, $s3api) {
                     S3Response::error('InvalidRequest', 'Copy source required', 400);
                 }
                 break;
-                
+
             default:
                 S3Response::error('MethodNotAllowed', 'Method not allowed', 405);
         }
     }
 }
 
-function renderPublicLandingPage() {
+function renderPublicLandingPage()
+{
     header('Content-Type: text/html; charset=UTF-8');
     echo '<!DOCTYPE html>
 <html lang="en">
@@ -404,7 +411,8 @@ function renderPublicLandingPage() {
 </html>';
 }
 
-function renderBucketsHtml() {
+function renderBucketsHtml()
+{
     header('Content-Type: text/html; charset=UTF-8');
     $pdo = getDB();
     $buckets = $pdo->query("SELECT b.name, b.created_at, COUNT(o.id) as object_count, COALESCE(SUM(o.size), 0) as total_size FROM buckets b LEFT JOIN objects o ON b.id = o.bucket_id GROUP BY b.id ORDER BY b.name")->fetchAll(PDO::FETCH_ASSOC);
@@ -413,7 +421,7 @@ function renderBucketsHtml() {
         'objects' => $pdo->query("SELECT COUNT(*) FROM objects")->fetchColumn(),
         'total_size' => $pdo->query("SELECT COALESCE(SUM(size), 0) FROM objects")->fetchColumn()
     ];
-    
+
     echo '<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -500,7 +508,7 @@ function renderBucketsHtml() {
             <tbody>';
         foreach ($buckets as $b) {
             $name = htmlspecialchars($b['name']);
-            $count = (int)$b['object_count'];
+            $count = (int) $b['object_count'];
             $size = formatBytesUI($b['total_size']);
             echo "<tr>
                 <td class='fw-medium fw-semibold'>
@@ -555,15 +563,16 @@ function renderBucketsHtml() {
 </html>';
 }
 
-function renderBucketObjectsHtml($bucketName) {
+function renderBucketObjectsHtml($bucketName)
+{
     header('Content-Type: text/html; charset=UTF-8');
     $pdo = getDB();
     $stmt = $pdo->prepare("SELECT id FROM buckets WHERE name = ?");
     $stmt->execute([$bucketName]);
     $bucket = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
     $bucketNameSafe = htmlspecialchars($bucketName);
-    
+
     echo '<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -604,7 +613,7 @@ function renderBucketObjectsHtml($bucketName) {
                 <a href="/admin/login.php" class="s3-btn s3-btn-primary"><i class="bi bi-plus-lg me-2"></i> Upload File</a>
             </div>
         </div>';
-    
+
     if (!$bucket) {
         echo '<div class="s3-card text-center py-5">
             <i class="bi bi-exclamation-triangle text-destructive fs-1 mb-3"></i>
@@ -616,7 +625,7 @@ function renderBucketObjectsHtml($bucketName) {
         $stmt = $pdo->prepare("SELECT object_key, size, created_at, etag, mime_type FROM objects WHERE bucket_id = ? ORDER BY object_key");
         $stmt->execute([$bucket['id']]);
         $objects = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         if (empty($objects)) {
             echo '<div class="s3-card text-center py-5" style="border-style: dashed;">
                 <div class="text-neutral-300 mb-2"><i class="bi bi-inbox fs-1"></i></div>
@@ -660,14 +669,16 @@ function renderBucketObjectsHtml($bucketName) {
             echo '</tbody></table></div></div>';
         }
     }
-    
+
     echo '</div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body></html>';
 }
 
-function formatBytesUI($size, $precision = 1) {
-    if ($size == 0) return '0 B';
+function formatBytesUI($size, $precision = 1)
+{
+    if ($size == 0)
+        return '0 B';
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
     for ($i = 0; $size >= 1024 && $i < count($units) - 1; $i++) {
         $size /= 1024;
@@ -675,15 +686,22 @@ function formatBytesUI($size, $precision = 1) {
     return round($size, $precision) . ' ' . $units[$i];
 }
 
-function getFileIcon($mimeType) {
-    if (!$mimeType) return 'bi-file-earmark';
-    if (strpos($mimeType, 'image/') === 0) return 'bi-file-earmark-image';
-    if (strpos($mimeType, 'video/') === 0) return 'bi-file-earmark-play';
-    if (strpos($mimeType, 'audio/') === 0) return 'bi-file-earmark-music';
-    if (strpos($mimeType, 'text/') === 0) return 'bi-file-earmark-text';
-    if (strpos($mimeType, 'application/pdf') === 0) return 'bi-file-earmark-pdf';
-    if (strpos($mimeType, 'application/zip') === 0 || strpos($mimeType, 'application/x-rar') === 0) return 'bi-file-earmark-zip';
+function getFileIcon($mimeType)
+{
+    if (!$mimeType)
+        return 'bi-file-earmark';
+    if (strpos($mimeType, 'image/') === 0)
+        return 'bi-file-earmark-image';
+    if (strpos($mimeType, 'video/') === 0)
+        return 'bi-file-earmark-play';
+    if (strpos($mimeType, 'audio/') === 0)
+        return 'bi-file-earmark-music';
+    if (strpos($mimeType, 'text/') === 0)
+        return 'bi-file-earmark-text';
+    if (strpos($mimeType, 'application/pdf') === 0)
+        return 'bi-file-earmark-pdf';
+    if (strpos($mimeType, 'application/zip') === 0 || strpos($mimeType, 'application/x-rar') === 0)
+        return 'bi-file-earmark-zip';
     return 'bi-file-earmark';
 }
 ?>
-

@@ -1,8 +1,6 @@
 <?php
-/**
- * Performance Monitor Fallback Implementation
- * Collects basic system and storage metrics
- */
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/lib/db.php';
 
 class PerformanceMonitor
 {
@@ -44,6 +42,23 @@ class PerformanceMonitor
                 'error_rate' => 0,
                 'avg_latency' => 0
             ];
+        }
+    }
+
+    /**
+     * Log a request for performance tracking (Matches signature in index.php)
+     */
+    public function logRequest($method, $uri, $time, $status, $details = '')
+    {
+        try {
+            // Convert time to ms if it's a float
+            $timeMs = is_float($time) ? $time * 1000 : $time;
+
+            if ($timeMs > 500) {
+                error_log("PERF WARNING: Slow request ({$timeMs}ms) - $method $uri (Status: $status)");
+            }
+        } catch (Exception $e) {
+            // Ignore logging errors
         }
     }
 

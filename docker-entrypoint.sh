@@ -128,6 +128,10 @@ if (php_sapi_name() !== 'cli' && session_status() === PHP_SESSION_NONE) {
 foreach ([STORAGE_PATH, LOGS_PATH, UPLOADS_PATH] as \$dir) {
     if (!is_dir(\$dir)) @mkdir(\$dir, 0755, true);
 }
+
+// Global Requirements
+require_once BASE_PATH . 'lib/db.php';
+require_once BASE_PATH . 'lib/helpers.php';
 EOFCONFIG
         
         chown www-data:www-data "$CONFIG_FILE"

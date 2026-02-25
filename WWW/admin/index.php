@@ -5,6 +5,8 @@
  */
 
 require_once '../config.php';
+require_once '../lib/db.php';
+require_once '../lib/helpers.php';
 require_once '../security.php';
 session_start();
 
