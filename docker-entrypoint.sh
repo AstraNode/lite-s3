@@ -25,8 +25,8 @@ if [ "$AUTO_INIT" = "true" ]; then
     if [ -n "$DB_HOST" ]; then
         echo "⏳ Waiting for MySQL at $DB_HOST (User: $DB_USER)..."
         for i in $(seq 1 60); do
-            # Use '|| true' to prevent 'set -e' from exiting the script on failure
-            ERR_MSG=$(mysqladmin ping -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" --connect-timeout=5 2>&1) || true
+            # Use '--ssl-mode=DISABLED' to prevent TLS verification errors on internal network
+            ERR_MSG=$(mysqladmin ping -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" --ssl-mode=DISABLED --connect-timeout=5 2>&1) || true
             
             # Check if the output contains 'mysqld is alive'
             if echo "$ERR_MSG" | grep -q "mysqld is alive"; then
@@ -41,7 +41,7 @@ if [ "$AUTO_INIT" = "true" ]; then
             if [ $i -eq 10 ]; then
                 echo "   💡 Tip: If this is an 'Access denied' error, verify your credentials in docker-compose.yml."
                 echo "   💡 Tip: If it's a 'Can't connect' error, ensure the 'mysql' container is running."
-                echo "   💡 Tip: Check 'docker logs s3-mysql' for more details."
+                echo "   💡 Tip: SSL errors are now bypassed with --ssl-mode=DISABLED."
             fi
             
             echo "   Sleeping 3s before next attempt..."
