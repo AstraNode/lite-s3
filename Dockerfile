@@ -10,15 +10,10 @@ RUN apt-get update && apt-get install -y \
 # Install PHP extensions
 RUN docker-php-ext-install pdo_sqlite pdo_mysql mysqli
 
-# Enable Apache modules
-RUN a2enmod rewrite headers
-
-# Configure Apache for large files (5GB+)
-RUN echo '<Directory /var/www/html>' >> /etc/apache2/apache2.conf && \
-    echo '    AllowOverride All' >> /etc/apache2/apache2.conf && \
-    echo '    Require all granted' >> /etc/apache2/apache2.conf && \
-    echo '    LimitRequestBody 6442450944' >> /etc/apache2/apache2.conf && \
-    echo '</Directory>' >> /etc/apache2/apache2.conf
+# Enable Apache modules and configure for large files
+RUN a2enmod rewrite headers && \
+    sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf && \
+    echo 'LimitRequestBody 6442450944' >> /etc/apache2/apache2.conf
 
 # PHP settings for large files (5GB+)
 COPY php.ini /usr/local/etc/php/conf.d/99-custom.ini

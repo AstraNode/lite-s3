@@ -6,9 +6,16 @@ set -e
 
 echo "🚀 S3 Object Storage - Starting..."
 
-# Create required directories
+# Create required directories and ensure correct permissions
+echo "🔧 Configuring file permissions..."
 mkdir -p /var/www/html/storage /var/www/html/logs /var/www/html/uploads
-chown -R www-data:www-data /var/www/html/storage /var/www/html/logs /var/www/html/uploads
+chown -R www-data:www-data /var/www/html
+chmod -R 755 /var/www/html
+
+# Suppress Apache FQDN warning
+if ! grep -q "ServerName" /etc/apache2/apache2.conf; then
+    echo "ServerName localhost" >> /etc/apache2/apache2.conf
+fi
 
 # Check if AUTO_INIT is enabled
 if [ "$AUTO_INIT" = "true" ]; then
