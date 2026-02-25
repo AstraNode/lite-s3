@@ -314,86 +314,90 @@ function renderPublicLandingPage() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S3 Object Storage</title>
+    <title>S3 Object Storage | Distributed S3-Compatible Storage</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #fff; }
-        .navbar { background: rgba(0,0,0,0.3) !important; backdrop-filter: blur(10px); }
-        .hero { padding: 100px 0; text-align: center; }
-        .hero h1 { font-size: 3.5rem; font-weight: 700; margin-bottom: 1rem; }
-        .hero p { font-size: 1.25rem; opacity: 0.8; max-width: 600px; margin: 0 auto 2rem; }
-        .feature-card { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 2rem; text-align: center; height: 100%; }
-        .feature-card i { font-size: 2.5rem; color: #38ef7d; margin-bottom: 1rem; }
-        code { background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 4px; color: #38ef7d; }
-        .api-box { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 1.5rem; margin-top: 3rem; }
-        a { color: #38ef7d; }
-    </style>
+    <link href="/meta/style.css" rel="stylesheet">
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/"><i class="bi bi-cloud-fill"></i> S3 Storage</a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="/admin/login.php"><i class="bi bi-box-arrow-in-right"></i> Login</a>
+<body class="animate-in">
+    <nav class="s3-nav py-3">
+        <div class="container d-flex justify-content-between align-items-center">
+            <a class="navbar-brand fw-bold d-flex align-items-center" href="/">
+                <i class="bi bi-cloud-fill me-2 fs-4"></i> S3 Storage
+            </a>
+            <div class="d-flex gap-3">
+                <a class="s3-btn s3-btn-outline" href="/admin/login.php">Log in</a>
+                <a class="s3-btn s3-btn-primary" href="/admin/login.php">Get Started</a>
             </div>
         </div>
     </nav>
     
-    <div class="hero">
-        <div class="container">
-            <i class="bi bi-cloud-arrow-up-fill" style="font-size: 5rem; color: #38ef7d;"></i>
-            <h1>S3 Object Storage</h1>
-            <p>Self-hosted, S3-compatible object storage for your files. Simple, secure, and designed for shared hosting.</p>
-            <a href="/admin/login.php" class="btn btn-lg btn-primary px-5"><i class="bi bi-box-arrow-in-right"></i> Sign In</a>
-        </div>
-    </div>
-    
-    <div class="container pb-5">
-        <div class="row g-4 mb-5">
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <i class="bi bi-shield-check"></i>
-                    <h5>S3 Compatible</h5>
-                    <p class="opacity-75 mb-0">Works with any S3 client - boto3, rclone, Cyberduck, and more.</p>
-                </div>
+    <main class="container">
+        <section class="py-5 mt-5 text-center">
+            <div class="mb-4 inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-900 animate-slide-up" style="display:inline-flex;">
+                <span class="badge-custom badge-outline me-2">New</span> 
+                S3-Compatible Object Storage for everyone
             </div>
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <i class="bi bi-people"></i>
-                    <h5>Multi-User</h5>
-                    <p class="opacity-75 mb-0">Create users with separate buckets and granular permissions.</p>
-                </div>
+            <h1 class="hero-title animate-slide-up" style="animation-delay: 0.1s;">The simple choice for <br><span class="text-neutral-500">modern storage needs.</span></h1>
+            <p class="hero-subtitle mx-auto animate-slide-up" style="animation-delay: 0.2s;">
+                Self-hosted, high-performance, and S3-compatible object storage. 
+                Designed to run seamlessly on your infrastructure with granular control.
+            </p>
+            <div class="d-flex justify-content-center gap-3 animate-slide-up" style="animation-delay: 0.3s;">
+                <a href="/admin/login.php" class="s3-btn s3-btn-primary py-3 px-5 fs-5">Sign In to Dashboard</a>
             </div>
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <i class="bi bi-hdd-stack"></i>
-                    <h5>Large Files</h5>
-                    <p class="opacity-75 mb-0">Supports files up to 5GB with multipart uploads.</p>
-                </div>
-            </div>
-        </div>
+        </section>
         
-        <div class="api-box">
-            <h5 class="mb-3"><i class="bi bi-code-slash"></i> API Endpoints</h5>
-            <div class="row">
-                <div class="col-md-6">
-                    <ul class="list-unstyled mb-0">
-                        <li class="mb-2"><code>PUT /{bucket}</code> Create bucket</li>
-                        <li class="mb-2"><code>GET /{bucket}</code> List objects</li>
-                        <li class="mb-0"><code>PUT /{bucket}/{key}</code> Upload object</li>
-                    </ul>
-                </div>
-                <div class="col-md-6">
-                    <ul class="list-unstyled mb-0">
-                        <li class="mb-2"><code>GET /{bucket}/{key}</code> Download object</li>
-                        <li class="mb-2"><code>DELETE /{bucket}/{key}</code> Delete object</li>
-                        <li class="mb-0"><code>HEAD /{bucket}/{key}</code> Object info</li>
-                    </ul>
+        <section class="row g-4 py-5 mt-4">
+            <div class="col-md-4">
+                <div class="s3-card h-100 animate-slide-up" style="animation-delay: 0.4s;">
+                    <div class="mb-3 text-primary"><i class="bi bi-shield-check fs-2"></i></div>
+                    <h5 class="fw-bold mb-3">S3 Compatible API</h5>
+                    <p class="text-muted small mb-0">Fully compatible with standard S3 SDKs, CLI tools, and libraries like boto3 and rclone.</p>
                 </div>
             </div>
-        </div>
-    </div>
+            <div class="col-md-4">
+                <div class="s3-card h-100 animate-slide-up" style="animation-delay: 0.5s;">
+                    <div class="mb-3 text-primary"><i class="bi bi-people fs-2"></i></div>
+                    <h5 class="fw-bold mb-3">Multi-tenancy</h5>
+                    <p class="text-muted small mb-0">Comprehensive user management with isolated buckets and granular access permissions.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="s3-card h-100 animate-slide-up" style="animation-delay: 0.6s;">
+                    <div class="mb-3 text-primary"><i class="bi bi-lightning-charge fs-2"></i></div>
+                    <h5 class="fw-bold mb-3">High Performance</h5>
+                    <p class="text-muted small mb-0">Optimized for speed and efficiency, supporting large files and concurrent operations.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mt-5 pt-5 border-top animate-slide-up" style="animation-delay: 0.7s;">
+            <div class="s3-card bg-neutral-50" style="border-style: dashed;">
+                <h5 class="mb-4 d-flex align-items-center gap-2">
+                    <i class="bi bi-terminal fs-4 text-neutral-400"></i>
+                    Quick Start Guide
+                </h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="text-muted small mb-2">Upload a file via cURL</p>
+                        <pre class="p-3 bg-black text-white rounded-3 small mb-0"><code>curl -X PUT -H "Authorization: AWS ACCESS:SECRET" \
+  --data-binary @file.txt \
+  http://api.domain.com/bucket/file.txt</code></pre>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="text-muted small mb-2">Download a file via cURL</p>
+                        <pre class="p-3 bg-black text-white rounded-3 small mb-0"><code>curl -H "Authorization: AWS ACCESS:SECRET" \
+  http://api.domain.com/bucket/file.txt</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <footer class="py-5 mt-5 text-center border-top text-muted small">
+            &copy; ' . date('Y') . ' S3 Storage. Built for performance and reliability.
+        </footer>
+    </main>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
@@ -415,142 +419,134 @@ function renderBucketsHtml() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S3 Object Storage</title>
+    <title>Dashboard | S3 Storage</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        :root { --bs-primary: #0d6efd; }
-        body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; }
-        .navbar { background: rgba(0,0,0,0.3) !important; backdrop-filter: blur(10px); }
-        .card { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
-        .card, .card-body, .list-group-item { color: #fff; }
-        .list-group-item { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
-        .list-group-item:hover { background: rgba(255,255,255,0.15); }
-        .stat-card { background: linear-gradient(135deg, var(--color1), var(--color2)); border: none; }
-        .stat-card.blue { --color1: #667eea; --color2: #764ba2; }
-        .stat-card.green { --color1: #11998e; --color2: #38ef7d; }
-        .stat-card.orange { --color1: #f093fb; --color2: #f5576c; }
-        .btn-action { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; }
-        .btn-action:hover { background: rgba(255,255,255,0.2); color: #fff; }
-        .hero { padding: 60px 0; text-align: center; color: #fff; }
-        .hero h1 { font-size: 3rem; font-weight: 700; }
-        .hero p { font-size: 1.25rem; opacity: 0.8; }
-        code { background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 4px; color: #38ef7d; }
-        .api-section { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 20px; margin-top: 20px; }
-        a { color: #38ef7d; }
-        a:hover { color: #11998e; }
-    </style>
+    <link href="/meta/style.css" rel="stylesheet">
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/"><i class="bi bi-cloud-fill"></i> S3 Storage</a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="/admin/login.php"><i class="bi bi-gear"></i> Admin</a>
-                <a class="nav-link" href="/health.php"><i class="bi bi-heart-pulse"></i> Health</a>
+<body class="animate-in">
+    <nav class="s3-nav py-3">
+        <div class="container d-flex justify-content-between align-items-center">
+            <a class="navbar-brand fw-bold d-flex align-items-center" href="/">
+                <i class="bi bi-cloud-fill me-2 fs-4"></i> S3 Storage
+            </a>
+            <div class="d-flex gap-3">
+                <a class="s3-btn s3-btn-outline" href="/admin/login.php">Admin Panel</a>
+                <a class="s3-btn s3-btn-secondary" href="/health.php">Health</a>
             </div>
         </div>
     </nav>
     
-    <div class="hero">
-        <div class="container">
-            <h1><i class="bi bi-cloud-arrow-up-fill"></i> S3 Object Storage</h1>
-            <p>S3-compatible storage for your applications</p>
+    <div class="container py-5">
+        <div class="row align-items-end mb-5">
+            <div class="col-lg-8">
+                <h1 class="fw-bold fs-2 mb-2">Storage Explorer</h1>
+                <p class="text-muted mb-0">Browse through your connected buckets and objects.</p>
+            </div>
         </div>
-    </div>
-    
-    <div class="container pb-5">
-        <div class="row mb-4">
-            <div class="col-md-4 mb-3">
-                <div class="card stat-card blue h-100">
-                    <div class="card-body text-center py-4">
-                        <i class="bi bi-folder-fill" style="font-size: 2rem;"></i>
-                        <h2 class="mt-2 mb-0">' . $stats['buckets'] . '</h2>
-                        <p class="mb-0 opacity-75">Buckets</p>
+
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="s3-card border-none bg-neutral-900 text-white">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <i class="bi bi-folder2-open fs-3 text-neutral-400"></i>
                     </div>
+                    <div class="h2 fw-bold mb-1">' . $stats['buckets'] . '</div>
+                    <div class="text-neutral-400 small">Total Buckets</div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card stat-card green h-100">
-                    <div class="card-body text-center py-4">
-                        <i class="bi bi-file-earmark-fill" style="font-size: 2rem;"></i>
-                        <h2 class="mt-2 mb-0">' . $stats['objects'] . '</h2>
-                        <p class="mb-0 opacity-75">Objects</p>
+            <div class="col-md-4">
+                <div class="s3-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <i class="bi bi-file-earmark-text fs-3 text-neutral-400"></i>
                     </div>
+                    <div class="h2 fw-bold mb-1">' . $stats['objects'] . '</div>
+                    <div class="text-neutral-400 small">Total Objects</div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card stat-card orange h-100">
-                    <div class="card-body text-center py-4">
-                        <i class="bi bi-hdd-fill" style="font-size: 2rem;"></i>
-                        <h2 class="mt-2 mb-0">' . formatBytesUI($stats['total_size']) . '</h2>
-                        <p class="mb-0 opacity-75">Storage Used</p>
+            <div class="col-md-4">
+                <div class="s3-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <i class="bi bi-hdd-network fs-3 text-neutral-400"></i>
                     </div>
+                    <div class="h2 fw-bold mb-1">' . formatBytesUI($stats['total_size']) . '</div>
+                    <div class="text-neutral-400 small">Total Capacity Used</div>
                 </div>
             </div>
         </div>
         
-        <div class="row">
-            <div class="col-lg-8 mb-4">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-folder2-open"></i> Buckets</h5>
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="s3-card p-0 overflow-hidden">
+                    <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0">Buckets</h5>
                     </div>
-                    <div class="card-body">';
+                    ';
     if (empty($buckets)) {
-        echo '<div class="text-center py-4 opacity-75"><i class="bi bi-inbox" style="font-size: 3rem;"></i><p class="mt-2">No buckets yet</p></div>';
+        echo '<div class="text-center py-5">
+            <div class="text-neutral-300 mb-2"><i class="bi bi-inbox fs-1"></i></div>
+            <p class="text-neutral-500">No buckets found.</p>
+        </div>';
     } else {
-        echo '<div class="list-group list-group-flush">';
+        echo '<table class="s3-table mb-0">
+            <thead>
+                <tr>
+                    <th>Bucket Name</th>
+                    <th>Objects</th>
+                    <th>Size</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>';
         foreach ($buckets as $b) {
             $name = htmlspecialchars($b['name']);
             $count = (int)$b['object_count'];
             $size = formatBytesUI($b['total_size']);
-            echo "<a href='/$name' class='list-group-item list-group-item-action d-flex justify-content-between align-items-center'>
-                <div><i class='bi bi-folder-fill text-warning'></i> <strong>$name</strong></div>
-                <div><span class='badge bg-primary'>$count objects</span> <span class='badge bg-secondary'>$size</span></div>
-            </a>";
+            echo "<tr>
+                <td class='fw-medium fw-semibold'>
+                    <div class='d-flex align-items-center'>
+                        <i class='bi bi-folder-fill text-neutral-400 me-3'></i>
+                        $name
+                    </div>
+                </td>
+                <td><span class='badge-custom badge-outline'>$count items</span></td>
+                <td class='text-neutral-500'>$size</td>
+                <td class='text-end'>
+                    <a href='/$name' class='s3-btn s3-btn-outline px-3 py-1'>Explore</a>
+                </td>
+            </tr>";
         }
-        echo '</div>';
+        echo '</tbody></table>';
     }
     echo '      </div>
-                </div>
             </div>
             
-            <div class="col-lg-4 mb-4">
-                <div class="card">
-                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-code-slash"></i> API Endpoints</h5></div>
-                    <div class="card-body">
-                        <ul class="list-unstyled mb-0">
-                            <li class="mb-2"><code>GET /</code> List buckets</li>
-                            <li class="mb-2"><code>PUT /{bucket}</code> Create bucket</li>
-                            <li class="mb-2"><code>GET /{bucket}</code> List objects</li>
-                            <li class="mb-2"><code>PUT /{bucket}/{key}</code> Upload</li>
-                            <li class="mb-2"><code>GET /{bucket}/{key}</code> Download</li>
-                            <li class="mb-0"><code>DELETE /{bucket}/{key}</code> Delete</li>
-                        </ul>
+            <div class="col-lg-4">
+                <div class="s3-card mb-4">
+                    <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                        <i class="bi bi-lightning-charge-fill text-primary"></i>
+                        Quick Commands
+                    </h6>
+                    <p class="text-muted small mb-4">Interact with your storage directly from the terminal.</p>
+                    
+                    <div class="space-y-4">
+                        <div class="mb-3">
+                            <label class="text-xs fw-bold text-neutral-500 mb-2 d-block text-uppercase">List Buckets</label>
+                            <pre class="bg-neutral-50 p-2 rounded border small mb-0"><code>curl -H "Auth: AWS admin:pass" http://s3.local/</code></pre>
+                        </div>
+                        <div>
+                            <label class="text-xs fw-bold text-neutral-500 mb-2 d-block text-uppercase">List Objects</label>
+                            <pre class="bg-neutral-50 p-2 rounded border small mb-0"><code>curl -H "Auth: AWS admin:pass" http://s3.local/my-bucket</code></pre>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="card mt-3">
-                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-key"></i> Quick Start</h5></div>
-                    <div class="card-body">
-                        <p class="small opacity-75 mb-2">Default credentials:</p>
-                        <p class="mb-1"><strong>Access Key:</strong> <code>admin</code></p>
-                        <p class="mb-3"><strong>Secret Key:</strong> <code>admin123</code></p>
-                        <a href="/admin/login.php" class="btn btn-primary w-100"><i class="bi bi-box-arrow-in-right"></i> Login to Admin</a>
-                    </div>
+
+                <div class="s3-card bg-primary text-white border-none">
+                    <h6 class="fw-bold mb-2">Need Help?</h6>
+                    <p class="text-neutral-300 small mb-4">Check out our documentation for more details on API usage.</p>
+                    <a href="/admin/login.php" class="s3-btn s3-btn-secondary w-100">Access Admin Dashboard</a>
                 </div>
             </div>
-        </div>
-        
-        <div class="api-section">
-            <h5 class="mb-3"><i class="bi bi-terminal"></i> cURL Example</h5>
-            <pre class="mb-0" style="color: #38ef7d; overflow-x: auto;"><code># Upload a file
-curl -X PUT -H "Authorization: AWS admin:admin123" \\
-     --data-binary @file.txt http://localhost:8081/mybucket/file.txt
-
-# Download a file
-curl -H "Authorization: AWS admin:admin123" http://localhost:8081/mybucket/file.txt</code></pre>
         </div>
     </div>
     
@@ -573,77 +569,72 @@ function renderBucketObjectsHtml($bucketName) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bucket: ' . $bucketNameSafe . '</title>
+    <title>Bucket: ' . $bucketNameSafe . ' | S3 Storage</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #fff; }
-        .navbar { background: rgba(0,0,0,0.3) !important; backdrop-filter: blur(10px); }
-        .card { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); color: #fff; }
-        .table { color: #fff; }
-        .table thead th { border-color: rgba(255,255,255,0.1); }
-        .table td, .table th { border-color: rgba(255,255,255,0.05); }
-        .table-hover tbody tr:hover { background: rgba(255,255,255,0.1); }
-        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; color: #38ef7d; font-size: 0.75rem; }
-        a { color: #38ef7d; }
-        .file-icon { font-size: 1.2rem; }
-        .breadcrumb { background: transparent; }
-        .breadcrumb-item a { color: #38ef7d; }
-        .breadcrumb-item.active { color: rgba(255,255,255,0.7); }
-    </style>
+    <link href="/meta/style.css" rel="stylesheet">
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/"><i class="bi bi-cloud-fill"></i> S3 Storage</a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="/admin/login.php"><i class="bi bi-gear"></i> Admin</a>
-            </div>
+<body class="animate-in">
+    <nav class="s3-nav py-3">
+        <div class="container d-flex justify-content-between align-items-center">
+            <a class="navbar-brand fw-bold d-flex align-items-center" href="/">
+                <i class="bi bi-cloud-fill me-2 fs-4"></i> S3 Storage
+            </a>
+            <a class="s3-btn s3-btn-outline" href="/">Return Home</a>
         </div>
     </nav>
     
-    <div class="container py-4">
-        <nav aria-label="breadcrumb">
+    <div class="container py-5">
+        <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="/"><i class="bi bi-house"></i> Home</a></li>
-                <li class="breadcrumb-item active">' . $bucketNameSafe . '</li>
+                <li class="breadcrumb-item"><a href="/" class="text-neutral-500 text-decoration-none">Buckets</a></li>
+                <li class="breadcrumb-item active" aria-current="page">' . $bucketNameSafe . '</li>
             </ol>
         </nav>
         
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-folder-fill text-warning"></i> ' . $bucketNameSafe . '</h2>
+        <div class="d-flex justify-content-between align-items-end mb-5">
+            <div>
+                <h1 class="fw-bold fs-2 mb-1 d-flex align-items-center">
+                    <i class="bi bi-folder2 text-neutral-400 me-3"></i>
+                    ' . $bucketNameSafe . '
+                </h1>
+                <p class="text-muted mb-0">List of objects stored in this bucket.</p>
+            </div>
+            <div>
+                <a href="/admin/login.php" class="s3-btn s3-btn-primary"><i class="bi bi-plus-lg me-2"></i> Upload File</a>
+            </div>
         </div>';
     
     if (!$bucket) {
-        echo '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Bucket not found</div>';
-        echo '<a href="/" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Back</a>';
+        echo '<div class="s3-card text-center py-5">
+            <i class="bi bi-exclamation-triangle text-destructive fs-1 mb-3"></i>
+            <h4 class="fw-bold">Bucket not found</h4>
+            <p class="text-neutral-500 mb-4">The bucket you are looking for does not exist or has been deleted.</p>
+            <a href="/" class="s3-btn s3-btn-outline">Browse all buckets</a>
+        </div>';
     } else {
         $stmt = $pdo->prepare("SELECT object_key, size, created_at, etag, mime_type FROM objects WHERE bucket_id = ? ORDER BY object_key");
         $stmt->execute([$bucket['id']]);
         $objects = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         if (empty($objects)) {
-            echo '<div class="card"><div class="card-body text-center py-5">
-                <i class="bi bi-inbox" style="font-size: 4rem; opacity: 0.5;"></i>
-                <h4 class="mt-3 opacity-75">No objects in this bucket</h4>
-                <p class="opacity-50">Upload files using the S3 API or Admin panel</p>
-            </div></div>';
+            echo '<div class="s3-card text-center py-5" style="border-style: dashed;">
+                <div class="text-neutral-300 mb-2"><i class="bi bi-inbox fs-1"></i></div>
+                <h5 class="fw-bold mb-1">Bucket is empty</h5>
+                <p class="text-neutral-500 mb-0">There are no objects in this bucket yet.</p>
+            </div>';
         } else {
-            echo '<div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-files"></i> ' . count($objects) . ' Objects</span>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead><tr>
-                                <th>Name</th>
-                                <th>Size</th>
-                                <th>Type</th>
-                                <th>Modified</th>
-                                <th></th>
-                            </tr></thead>
-                            <tbody>';
+            echo '<div class="s3-card p-0 overflow-hidden">
+                <div class="table-responsive">
+                    <table class="s3-table mb-0">
+                        <thead><tr>
+                            <th>Object Key</th>
+                            <th>Size</th>
+                            <th>Type</th>
+                            <th>Last Modified</th>
+                            <th class="text-end">Action</th>
+                        </tr></thead>
+                        <tbody>';
             foreach ($objects as $o) {
                 $key = htmlspecialchars($o['object_key']);
                 $size = formatBytesUI($o['size']);
@@ -652,14 +643,21 @@ function renderBucketObjectsHtml($bucketName) {
                 $icon = getFileIcon($o['mime_type']);
                 $url = '/' . rawurlencode($bucketName) . '/' . str_replace('%2F', '/', rawurlencode($o['object_key']));
                 echo "<tr>
-                    <td><i class='bi $icon file-icon text-primary'></i> $key</td>
-                    <td>$size</td>
-                    <td><code>$mime</code></td>
-                    <td>$created</td>
-                    <td><a href='$url' class='btn btn-sm btn-outline-light' target='_blank'><i class='bi bi-download'></i></a></td>
+                    <td class='fw-medium'>
+                        <div class='d-flex align-items-center'>
+                            <i class='bi $icon text-neutral-400 me-3'></i>
+                            $key
+                        </div>
+                    </td>
+                    <td class='text-neutral-500'>$size</td>
+                    <td><span class='badge-custom badge-outline'>$mime</span></td>
+                    <td class='text-neutral-500'>$created</td>
+                    <td class='text-end'>
+                        <a href='$url' class='s3-btn s3-btn-outline px-3 py-1' target='_blank'><i class='bi bi-download'></i></a>
+                    </td>
                 </tr>";
             }
-            echo '</tbody></table></div></div></div>';
+            echo '</tbody></table></div></div>';
         }
     }
     

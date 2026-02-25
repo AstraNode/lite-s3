@@ -15,7 +15,7 @@ if (IS_PRODUCTION) {
     ini_set('log_errors', 1);
     ini_set('error_log', __DIR__ . '/logs/error.log');
     error_reporting(DEBUG_MODE ? E_ALL : (E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED));
-    
+
     // Security headers (only in web context)
     if (php_sapi_name() !== 'cli') {
         header('X-Content-Type-Options: nosniff');
@@ -24,44 +24,44 @@ if (IS_PRODUCTION) {
         header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
         header('Referrer-Policy: strict-origin-when-cross-origin');
     }
-    
+
     // Rate limiting (disabled as requested)
     define('RATE_LIMIT_ENABLED', false);
     define('RATE_LIMIT_REQUESTS', 1000);
     define('RATE_LIMIT_WINDOW', 60);
-    
+
     // Security settings
     define('MAX_LOGIN_ATTEMPTS', 5);
     define('LOGIN_LOCKOUT_TIME', 300); // 5 minutes
     define('SESSION_TIMEOUT', 3600); // 1 hour
-    
+
     // Allow all file types
     define('ALLOWED_FILE_TYPES', ['*']);
-    
+
     if (!defined('MAX_FILE_SIZE')) {
         // Effectively no limit (subject to server/container limits)
         define('MAX_FILE_SIZE', PHP_INT_MAX);
     }
     // Disable scanning to allow any content
     define('SCAN_UPLOADS', false);
-    
+
 } else {
     // Development settings
     ini_set('display_errors', 1);
     ini_set('log_errors', 1);
     ini_set('error_log', __DIR__ . '/logs/error.log');
     error_reporting(E_ALL);
-    
+
     // Rate limiting (disabled in dev)
     define('RATE_LIMIT_ENABLED', false);
     define('RATE_LIMIT_REQUESTS', 1000);
     define('RATE_LIMIT_WINDOW', 60);
-    
+
     // Security settings (relaxed for dev)
     define('MAX_LOGIN_ATTEMPTS', 10);
     define('LOGIN_LOCKOUT_TIME', 60);
     define('SESSION_TIMEOUT', 7200); // 2 hours
-    
+
     // File upload security (relaxed for dev)
     define('ALLOWED_FILE_TYPES', ['*']); // Allow all file types in dev
     if (!defined('MAX_FILE_SIZE')) {
@@ -79,9 +79,15 @@ ini_set('output_buffering', 'Off'); // Required for large file streaming
 
 // Session security
 ini_set('session.cookie_httponly', 1);
-ini_set('session.cookie_secure', IS_PRODUCTION ? 1 : 0);
+
+// Dynamic HTTPS detection for session security
+$is_https = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
+    (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
+    (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+
+ini_set('session.cookie_secure', $is_https ? 1 : 0);
 ini_set('session.use_strict_mode', 1);
-ini_set('session.cookie_samesite', 'Strict');
+ini_set('session.cookie_samesite', $is_https ? 'None' : 'Lax'); // Lax is safer for non-HTTPS; None+Secure for HTTPS
 
 // Create logs directory if it doesn't exist
 if (!is_dir(__DIR__ . '/logs')) {

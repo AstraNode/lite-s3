@@ -36,6 +36,9 @@ switch ($page) {
     case 'users':
         include 'users.php';
         break;
+    case 'monitor':
+        include 'monitor.php';
+        break;
     case 'change-password':
         include 'change-password.php';
         break;

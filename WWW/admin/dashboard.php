@@ -40,146 +40,134 @@ $recentObjects = $pdo->query("
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S3 Storage Admin - Dashboard</title>
+    <title>Dashboard | S3 Storage Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/meta/style.css" rel="stylesheet">
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="?page=dashboard">
-                <i class="bi bi-cloud-upload"></i> S3 Storage Admin
-            </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="?page=buckets">
-                    <i class="bi bi-folder"></i> Buckets
+
+<body class="bg-neutral-50 animate-in">
+    <nav class="s3-nav py-2">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-4">
+                <a class="navbar-brand fw-bold d-flex align-items-center" href="?page=dashboard">
+                    <i class="bi bi-cloud-upload me-2 fs-5"></i> Admin
                 </a>
-                <a class="nav-link" href="?page=users">
-                    <i class="bi bi-people"></i> Users
-                </a>
-                <a class="nav-link" href="?page=logout">
-                    <i class="bi bi-box-arrow-right"></i> Logout
+                <div class="d-flex gap-1 overflow-auto">
+                    <a class="s3-btn s3-btn-outline border-0 bg-transparent fw-semibold" href="?page=dashboard">Overview</a>
+                    <a class="s3-btn s3-btn-outline border-0 bg-transparent text-neutral-500 hover:text-neutral-900" href="?page=buckets">Buckets</a>
+                    <a class="s3-btn s3-btn-outline border-0 bg-transparent text-neutral-500 hover:text-neutral-900" href="?page=users">Users</a>
+                    <a class="s3-btn s3-btn-outline border-0 bg-transparent text-neutral-500 hover:text-neutral-900" href="?page=monitor">Monitor</a>
+                    <a class="s3-btn s3-btn-outline border-0 bg-transparent text-neutral-500 hover:text-neutral-900" href="?page=change-password">Security</a>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-neutral-400 small d-none d-sm-inline">Logged in as
+                    <strong><?= htmlspecialchars($_SESSION['username']) ?></strong></span>
+                <a class="s3-btn s3-btn-outline px-3" href="?page=logout">
+                    <i class="bi bi-box-arrow-right"></i>
                 </a>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-12">
-                <h1 class="mb-4">
-                    <i class="bi bi-speedometer2"></i> Dashboard
-                </h1>
-            </div>
-        </div>
+    <main class="container py-5">
+        <header class="mb-5">
+            <h1 class="fw-bold fs-2 mb-2">System Overview</h1>
+            <p class="text-neutral-500 mb-0">High-level statistics and recent activity from your storage engine.</p>
+        </header>
 
         <!-- Statistics Cards -->
-        <div class="row mb-4">
-            <div class="col-md-3 mb-3">
-                <div class="card bg-primary text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h4 class="card-title"><?= $stats['users'] ?></h4>
-                                <p class="card-text">Users</p>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="bi bi-people" style="font-size: 2rem;"></i>
-                            </div>
-                        </div>
+        <div class="row g-4 mb-5">
+            <div class="col-md-3">
+                <div class="s3-card border-none bg-black text-white">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <i class="bi bi-people fs-4 text-neutral-400"></i>
                     </div>
+                    <div class="h3 fw-bold mb-1"><?= $stats['users'] ?></div>
+                    <div class="text-neutral-400 small">Total Users</div>
                 </div>
             </div>
-            
-            <div class="col-md-3 mb-3">
-                <div class="card bg-success text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h4 class="card-title"><?= $stats['buckets'] ?></h4>
-                                <p class="card-text">Buckets</p>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="bi bi-folder" style="font-size: 2rem;"></i>
-                            </div>
-                        </div>
+
+            <div class="col-md-3">
+                <div class="s3-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <i class="bi bi-folder fs-4 text-neutral-400"></i>
                     </div>
+                    <div class="h3 fw-bold mb-1"><?= $stats['buckets'] ?></div>
+                    <div class="text-neutral-400 small">Active Buckets</div>
                 </div>
             </div>
-            
-            <div class="col-md-3 mb-3">
-                <div class="card bg-info text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h4 class="card-title"><?= $stats['objects'] ?></h4>
-                                <p class="card-text">Objects</p>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="bi bi-file-earmark" style="font-size: 2rem;"></i>
-                            </div>
-                        </div>
+
+            <div class="col-md-3">
+                <div class="s3-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <i class="bi bi-file-earmark-code fs-4 text-neutral-400"></i>
                     </div>
+                    <div class="h3 fw-bold mb-1"><?= $stats['objects'] ?></div>
+                    <div class="text-neutral-400 small">Total Objects</div>
                 </div>
             </div>
-            
-            <div class="col-md-3 mb-3">
-                <div class="card bg-warning text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h4 class="card-title"><?= formatBytes($stats['total_size']) ?></h4>
-                                <p class="card-text">Total Size</p>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="bi bi-hdd" style="font-size: 2rem;"></i>
-                            </div>
-                        </div>
+
+            <div class="col-md-3">
+                <div class="s3-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <i class="bi bi-hdd-network fs-4 text-neutral-400"></i>
                     </div>
+                    <div class="h3 fw-bold mb-1"><?= formatBytes($stats['total_size']) ?></div>
+                    <div class="text-neutral-400 small">Storage Consumed</div>
                 </div>
             </div>
         </div>
 
-        <!-- Recent Activity -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="bi bi-clock-history"></i> Recent Activity
-                        </h5>
+        <div class="row g-4">
+            <!-- Recent Activity -->
+            <div class="col-lg-8">
+                <div class="s3-card p-0">
+                    <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0">Recent Uploads</h5>
+                        <a href="?page=buckets"
+                            class="text-xs fw-semibold text-neutral-500 text-decoration-none hover:text-neutral-900 border-bottom">View
+                            all buckets</a>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-0">
                         <?php if (empty($recentObjects)): ?>
-                            <p class="text-muted">No recent activity</p>
+                            <div class="text-center py-5">
+                                <p class="text-neutral-400 small">No recent activity detected</p>
+                            </div>
                         <?php else: ?>
                             <div class="table-responsive">
-                                <table class="table table-hover">
+                                <table class="s3-table mb-0">
                                     <thead>
                                         <tr>
-                                            <th>Object</th>
+                                            <th>ObjectName</th>
                                             <th>Bucket</th>
                                             <th>Size</th>
-                                            <th>Uploaded</th>
+                                            <th class="text-end">Timestamp</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <?php foreach ($recentObjects as $object): ?>
                                             <tr>
-                                                <td>
-                                                    <i class="bi bi-file-earmark"></i>
-                                                    <?= htmlspecialchars($object['object_key']) ?>
+                                                <td class="fw-medium">
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="bi bi-file-earmark-text text-neutral-400 me-2"></i>
+                                                        <?= htmlspecialchars($object['object_key']) ?>
+                                                    </div>
                                                 </td>
                                                 <td>
-                                                    <span class="badge bg-secondary">
+                                                    <span class="badge-custom badge-outline">
                                                         <?= htmlspecialchars($object['bucket_name']) ?>
                                                     </span>
                                                 </td>
-                                                <td><?= formatBytes($object['size']) ?></td>
-                                                <td><?= date('M j, Y H:i', strtotime($object['created_at'])) ?></td>
+                                                <td class="text-neutral-500 font-monospace" style="font-size: 0.75rem;">
+                                                    <?= formatBytes($object['size']) ?></td>
+                                                <td class="text-end text-neutral-400" style="font-size: 0.75rem;">
+                                                    <?= date('M j, H:i', strtotime($object['created_at'])) ?></td>
                                             </tr>
                                         <?php endforeach; ?>
                                     </tbody>
@@ -189,56 +177,64 @@ $recentObjects = $pdo->query("
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Quick Actions -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="bi bi-lightning"></i> Quick Actions
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <a href="?page=buckets" class="btn btn-outline-primary w-100">
-                                    <i class="bi bi-folder-plus"></i><br>
-                                    Manage Buckets
-                                </a>
+            <!-- Quick Actions -->
+            <div class="col-lg-4">
+                <div class="s3-card h-100">
+                    <h5 class="fw-bold mb-4">Quick Actions</h5>
+                    <div class="d-grid gap-3">
+                        <a href="?page=buckets" class="s3-btn s3-btn-outline justify-content-start py-3">
+                            <i class="bi bi-folder-plus me-3 text-neutral-400"></i>
+                            <div class="text-start">
+                                <div class="fw-semibold">Manage Buckets</div>
+                                <div class="text-xs text-neutral-500">Create and configure storage containers</div>
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <a href="?page=users" class="btn btn-outline-success w-100">
-                                    <i class="bi bi-person-plus"></i><br>
-                                    Manage Users
-                                </a>
+                        </a>
+                        <a href="?page=users" class="s3-btn s3-btn-outline justify-content-start py-3">
+                            <i class="bi bi-person-plus me-3 text-neutral-400"></i>
+                            <div class="text-start">
+                                <div class="fw-semibold">User Access</div>
+                                <div class="text-xs text-neutral-500">Manage API keys and permissions</div>
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <a href="/" class="btn btn-outline-info w-100" target="_blank">
-                                    <i class="bi bi-code-slash"></i><br>
-                                    API Documentation
-                                </a>
+                        </a>
+                        <a href="?page=monitor" class="s3-btn s3-btn-outline justify-content-start py-3">
+                            <i class="bi bi-graph-up me-3 text-neutral-400"></i>
+                            <div class="text-start">
+                                <div class="fw-semibold">Monitoring</div>
+                                <div class="text-xs text-neutral-500">Real-time performance metrics</div>
                             </div>
-                        </div>
+                        </a>
+                        <a href="/" class="s3-btn s3-btn-outline justify-content-start py-3" target="_blank">
+                            <i class="bi bi-code-slash me-3 text-neutral-400"></i>
+                            <div class="text-start">
+                                <div class="fw-semibold">API Docs</div>
+                                <div class="text-xs text-neutral-500">Integration guide and examples</div>
+                            </div>
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
+
+    <footer class="py-5 text-center text-neutral-400 border-top mt-5 bg-neutral-50">
+        <p class="small mb-0">S3 Storage Admin v1.0 &bull; Secure Object Storage</p>
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
+
 </html>
 
 <?php
-function formatBytes($size, $precision = 2) {
+function formatBytes($size, $precision = 2)
+{
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    
+
     for ($i = 0; $size > 1024 && $i < count($units) - 1; $i++) {
         $size /= 1024;
     }
-    
+
     return round($size, $precision) . ' ' . $units[$i];
 }
 ?>

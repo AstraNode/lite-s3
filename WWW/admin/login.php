@@ -64,79 +64,71 @@ if ($_SESSION['admin_logged_in'] ?? false) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S3 Storage Admin - Login</title>
+    <title>Login | S3 Storage Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        .password-toggle {
-            cursor: pointer;
-            user-select: none;
-        }
-        .password-toggle:hover {
-            color: #0d6efd !important;
-        }
-    </style>
+    <link href="/meta/style.css" rel="stylesheet">
 </head>
-<body class="bg-light">
+<body class="bg-neutral-50 animate-in">
     <div class="container">
         <div class="row justify-content-center min-vh-100 align-items-center">
-            <div class="col-md-6 col-lg-4">
-                <div class="card shadow">
-                    <div class="card-body p-5">
-                        <div class="text-center mb-4">
-                            <i class="bi bi-cloud-upload text-primary" style="font-size: 3rem;"></i>
-                            <h3 class="mt-3">S3 Storage Admin</h3>
-                            <p class="text-muted">Sign in to manage your storage</p>
+            <div class="col-md-5 col-lg-4">
+                <div class="s3-card shadow-sm border-neutral-200">
+                    <div class="text-center mb-5">
+                        <div class="d-inline-flex align-items-center justify-content-center bg-black text-white rounded-3 mb-3" style="width: 48px; height: 48px;">
+                            <i class="bi bi-cloud-upload fs-4"></i>
                         </div>
-                        
-                        <?php if (isset($error)): ?>
-                            <div class="alert alert-danger" role="alert">
-                                <i class="bi bi-exclamation-triangle"></i> <?= htmlspecialchars($error) ?>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <form method="POST" id="loginForm">
-                            <input type="hidden" name="action" value="login">
-                            
-                            <div class="mb-3">
-                                <label for="username" class="form-label">Access Key</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-key"></i></span>
-                                    <input type="text" class="form-control" id="username" name="username" 
-                                           value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" 
-                                           required autocomplete="username" placeholder="Your S3 Access Key">
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="password" class="form-label">Secret Key</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                                    <input type="password" class="form-control" id="password" name="password" 
-                                           required autocomplete="current-password" placeholder="Your S3 Secret Key">
-                                    <span class="input-group-text password-toggle" onclick="togglePassword()">
-                                        <i class="bi bi-eye" id="passwordToggleIcon"></i>
-                                    </span>
-                                </div>
-                            </div>
-                            
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-box-arrow-in-right"></i> Sign In
-                            </button>
-                        </form>
-                        
-                        <div class="text-center mt-4">
-                            <small class="text-muted">
-                                S3-Compatible Object Storage
-                            </small>
-                        </div>
+                        <h4 class="fw-bold">Welcome back</h4>
+                        <p class="text-neutral-500 small">Enter your credentials to access your storage</p>
                     </div>
+                    
+                    <?php if (isset($error)): ?>
+                        <div class="alert bg-destructive/10 border-destructive/20 text-destructive small py-2 d-flex align-items-center mb-4" role="alert">
+                            <i class="bi bi-exclamation-circle me-2"></i> <?= htmlspecialchars($error) ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <form method="POST" id="loginForm">
+                        <input type="hidden" name="action" value="login">
+                        
+                        <div class="mb-4">
+                            <label for="username" class="text-xs fw-bold text-neutral-500 mb-2 d-block text-uppercase">Access Key</label>
+                            <input type="text" class="s3-input" id="username" name="username" 
+                                   value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" 
+                                   required autocomplete="username" placeholder="Your Access Key">
+                        </div>
+                        
+                        <div class="mb-5">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label for="password" class="text-xs fw-bold text-neutral-500 d-block text-uppercase">Secret Key</label>
+                            </div>
+                            <div class="position-relative">
+                                <input type="password" class="s3-input pe-5" id="password" name="password" 
+                                       required autocomplete="current-password" placeholder="••••••••">
+                                <button type="button" class="position-absolute end-0 top-50 translate-middle-y border-0 bg-transparent px-3 text-neutral-400" onclick="togglePassword()">
+                                    <i class="bi bi-eye" id="passwordToggleIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="s3-btn s3-btn-primary w-100 py-2">
+                            Sign In to Admin
+                        </button>
+                    </form>
+                    
+                    <div class="text-center mt-5">
+                        <a href="/" class="text-neutral-400 small text-decoration-none hover:text-neutral-600">
+                            <i class="bi bi-arrow-left me-1"></i> Back to public explorer
+                        </a>
+                    </div>
+                </div>
+                <div class="text-center mt-4">
+                    <p class="text-neutral-400 text-xs">S3 Storage Engine &copy; <?= date('Y') ?></p>
                 </div>
             </div>
         </div>
     </div>
     
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function togglePassword() {
             const passwordField = document.getElementById('password');
@@ -151,28 +143,10 @@ if ($_SESSION['admin_logged_in'] ?? false) {
             }
         }
         
-        // Focus on username field if empty, otherwise password
         document.addEventListener('DOMContentLoaded', function() {
             const usernameField = document.getElementById('username');
             const passwordField = document.getElementById('password');
-            
-            if (usernameField.value) {
-                passwordField.focus();
-            } else {
-                usernameField.focus();
-            }
-        });
-        
-        // Form validation
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
-            
-            if (!username || !password) {
-                e.preventDefault();
-                alert('Please enter both username and password');
-                return false;
-            }
+            if (usernameField.value) { passwordField.focus(); } else { usernameField.focus(); }
         });
     </script>
 </body>

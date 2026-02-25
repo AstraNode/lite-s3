@@ -21,7 +21,7 @@ if (($_POST['action'] ?? '') === 'change_password') {
     $currentSecretKey = $_POST['current_password'] ?? '';
     $newSecretKey = $_POST['new_password'] ?? '';
     $confirmSecretKey = $_POST['confirm_password'] ?? '';
-    
+
     if (!$currentSecretKey || !$newSecretKey || !$confirmSecretKey) {
         $error = 'All fields are required';
     } elseif ($newSecretKey !== $confirmSecretKey) {
@@ -33,12 +33,12 @@ if (($_POST['action'] ?? '') === 'change_password') {
         $stmt = $pdo->prepare("SELECT secret_key FROM users WHERE id = ?");
         $stmt->execute([$currentUserId]);
         $user = $stmt->fetch();
-        
+
         if ($user && password_verify($currentSecretKey, $user['secret_key'])) {
             // Update secret key
             $hashedSecretKey = password_hash($newSecretKey, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("UPDATE users SET secret_key = ? WHERE id = ?");
-            
+
             if ($stmt->execute([$hashedSecretKey, $currentUserId])) {
                 $success = 'Secret key changed successfully';
                 error_log("Secret key changed for user ID: " . $currentUserId);
@@ -53,10 +53,10 @@ if (($_POST['action'] ?? '') === 'change_password') {
 
 // Handle admin changing other user's secret key
 if (($_POST['action'] ?? '') === 'change_user_password' && $isAdmin) {
-    $targetUserId = (int)($_POST['user_id'] ?? 0);
+    $targetUserId = (int) ($_POST['user_id'] ?? 0);
     $newSecretKey = $_POST['new_password'] ?? '';
     $confirmSecretKey = $_POST['confirm_password'] ?? '';
-    
+
     if (!$targetUserId || !$newSecretKey || !$confirmSecretKey) {
         $error = 'All fields are required';
     } elseif ($newSecretKey !== $confirmSecretKey) {
@@ -68,12 +68,12 @@ if (($_POST['action'] ?? '') === 'change_user_password' && $isAdmin) {
         $stmt = $pdo->prepare("SELECT access_key FROM users WHERE id = ?");
         $stmt->execute([$targetUserId]);
         $targetUser = $stmt->fetch();
-        
+
         if ($targetUser) {
             // Update secret key
             $hashedSecretKey = password_hash($newSecretKey, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("UPDATE users SET secret_key = ? WHERE id = ?");
-            
+
             if ($stmt->execute([$hashedSecretKey, $targetUserId])) {
                 $success = 'Secret key changed successfully for user: ' . $targetUser['access_key'];
                 error_log("Admin changed secret key for user ID: " . $targetUserId);
@@ -99,222 +99,229 @@ if ($isAdmin) {
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S3 Storage Admin - Change Password</title>
+    <title>Security Settings | S3 Storage Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        .password-toggle {
-            cursor: pointer;
-            user-select: none;
-        }
-        .password-toggle:hover {
-            color: #0d6efd !important;
-        }
-    </style>
+    <link href="/meta/style.css" rel="stylesheet">
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="?page=dashboard">
-                <i class="bi bi-cloud-upload"></i> S3 Storage Admin
-            </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="?page=dashboard">
-                    <i class="bi bi-speedometer2"></i> Dashboard
+
+<body class="bg-neutral-50 animate-in">
+    <nav class="s3-nav py-2">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-4">
+                <a class="navbar-brand fw-bold d-flex align-items-center" href="?page=dashboard">
+                    <i class="bi bi-cloud-upload me-2 fs-5"></i> Admin
                 </a>
-                <a class="nav-link" href="?page=buckets">
-                    <i class="bi bi-folder"></i> Buckets
-                </a>
-                <?php if ($isAdmin): ?>
-                <a class="nav-link" href="?page=users">
-                    <i class="bi bi-people"></i> Users
-                </a>
-                <?php endif; ?>
-                <a class="nav-link active" href="?page=change-password">
-                    <i class="bi bi-key"></i> Change Password
-                </a>
-                <a class="nav-link" href="?page=logout">
-                    <i class="bi bi-box-arrow-right"></i> Logout
+                <div class="d-flex gap-1 overflow-auto">
+                    <a class="s3-btn s3-btn-outline border-0 bg-transparent text-neutral-500 hover:text-neutral-900"
+                        href="?page=dashboard">Overview</a>
+                    <a class="s3-btn s3-btn-outline border-0 bg-transparent text-neutral-500 hover:text-neutral-900"
+                        href="?page=buckets">Buckets</a>
+                    <?php if ($isAdmin): ?>
+                        <a class="s3-btn s3-btn-outline border-0 bg-transparent text-neutral-500 hover:text-neutral-900"
+                            href="?page=users">Users</a>
+                    <?php endif; ?>
+                    <a class="s3-btn s3-btn-outline border-0 bg-transparent text-neutral-500 hover:text-neutral-900"
+                        href="?page=monitor">Monitor</a>
+                    <a class="s3-btn s3-btn-outline border-0 bg-transparent fw-semibold"
+                        href="?page=change-password">Security</a>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-neutral-400 small d-none d-sm-inline">Logged in as
+                    <strong><?= htmlspecialchars($_SESSION['username']) ?></strong></span>
+                <a class="s3-btn s3-btn-outline px-3" href="?page=logout">
+                    <i class="bi bi-box-arrow-right"></i>
                 </a>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-12">
-                <h1>
-                    <i class="bi bi-key"></i> Change Password
-                </h1>
-                <p class="text-muted">Manage your account password</p>
-            </div>
-        </div>
+    <main class="container py-5">
+        <header class="mb-5">
+            <h1 class="fw-bold fs-2 mb-2">Security Settings</h1>
+            <p class="text-neutral-500 mb-0">Update your access credentials and manage user security.</p>
+        </header>
 
         <?php if (isset($success)): ?>
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle"></i> <?= htmlspecialchars($success) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <div class="alert bg-black text-white border-0 shadow-sm small py-3 d-flex align-items-center mb-4 animate-in"
+                role="alert">
+                <i class="bi bi-check2-circle me-3 fs-5 text-success"></i> <?= htmlspecialchars($success) ?>
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
 
         <?php if (isset($error)): ?>
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="bi bi-exclamation-triangle"></i> <?= htmlspecialchars($error) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <div class="alert bg-destructive/10 border-destructive/20 text-destructive small py-3 d-flex align-items-center mb-4 animate-in"
+                role="alert">
+                <i class="bi bi-exclamation-triangle me-3 fs-5"></i> <?= htmlspecialchars($error) ?>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
 
-        <div class="row">
+        <div class="row g-4 mb-5">
             <!-- Change Own Password -->
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="bi bi-person"></i> Change My Secret Key
-                        </h5>
+            <div class="col-lg-6">
+                <div class="s3-card h-100">
+                    <div class="mb-4">
+                        <h5 class="fw-bold mb-1">Update Personal Secret</h5>
+                        <p class="text-xs text-neutral-500 mb-0">Change your own S3 secret key and console password.</p>
                     </div>
-                    <div class="card-body">
-                        <form method="POST">
-                            <input type="hidden" name="action" value="change_password">
-                            
-                            <div class="mb-3">
-                                <label for="current_password" class="form-label">Current Secret Key</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                                    <input type="password" class="form-control" id="current_password" name="current_password" required>
-                                    <span class="input-group-text password-toggle" onclick="togglePassword('current_password')">
-                                        <i class="bi bi-eye" id="current_password_toggle"></i>
-                                    </span>
-                                </div>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="change_password">
+
+                        <div class="mb-3">
+                            <label for="current_password"
+                                class="text-xs fw-bold text-neutral-500 mb-2 d-block text-uppercase">Current Secret
+                                Key</label>
+                            <div class="position-relative">
+                                <input type="password" class="s3-input pe-5" id="current_password"
+                                    name="current_password" required>
+                                <button type="button"
+                                    class="position-absolute end-0 top-50 translate-middle-y border-0 bg-transparent px-3 text-neutral-400"
+                                    onclick="togglePassword('current_password')">
+                                    <i class="bi bi-eye" id="current_password_toggle"></i>
+                                </button>
                             </div>
-                            
-                            <div class="mb-3">
-                                <label for="new_password" class="form-label">New Secret Key</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                                    <input type="password" class="form-control" id="new_password" name="new_password" 
-                                           minlength="6" required>
-                                    <span class="input-group-text password-toggle" onclick="togglePassword('new_password')">
-                                        <i class="bi bi-eye" id="new_password_toggle"></i>
-                                    </span>
-                                </div>
-                                <div class="form-text">Minimum 6 characters</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="new_password"
+                                class="text-xs fw-bold text-neutral-500 mb-2 d-block text-uppercase">New Secret
+                                Key</label>
+                            <div class="position-relative">
+                                <input type="password" class="s3-input pe-5" id="new_password" name="new_password"
+                                    minlength="6" required>
+                                <button type="button"
+                                    class="position-absolute end-0 top-50 translate-middle-y border-0 bg-transparent px-3 text-neutral-400"
+                                    onclick="togglePassword('new_password')">
+                                    <i class="bi bi-eye" id="new_password_toggle"></i>
+                                </button>
                             </div>
-                            
-                            <div class="mb-3">
-                                <label for="confirm_password" class="form-label">Confirm New Secret Key</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
-                                           minlength="6" required>
-                                    <span class="input-group-text password-toggle" onclick="togglePassword('confirm_password')">
-                                        <i class="bi bi-eye" id="confirm_password_toggle"></i>
-                                    </span>
-                                </div>
+                            <div class="text-xs text-neutral-400 mt-2">Minimum 6 characters.</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="confirm_password"
+                                class="text-xs fw-bold text-neutral-500 mb-2 d-block text-uppercase">Confirm New
+                                Key</label>
+                            <div class="position-relative">
+                                <input type="password" class="s3-input pe-5" id="confirm_password"
+                                    name="confirm_password" minlength="6" required>
+                                <button type="button"
+                                    class="position-absolute end-0 top-50 translate-middle-y border-0 bg-transparent px-3 text-neutral-400"
+                                    onclick="togglePassword('confirm_password')">
+                                    <i class="bi bi-eye" id="confirm_password_toggle"></i>
+                                </button>
                             </div>
-                            
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-circle"></i> Change Password
-                            </button>
-                        </form>
-                    </div>
+                        </div>
+
+                        <button type="submit" class="s3-btn s3-btn-primary w-100">
+                            Apply Changes
+                        </button>
+                    </form>
                 </div>
             </div>
 
             <!-- Admin: Change Other User's Password -->
             <?php if ($isAdmin && !empty($allUsers)): ?>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="bi bi-people"></i> Change User Password (Admin)
-                        </h5>
-                    </div>
-                    <div class="card-body">
+                <div class="col-lg-6">
+                    <div class="s3-card h-100">
+                        <div class="mb-4">
+                            <h5 class="fw-bold mb-1">Administrative Override</h5>
+                            <p class="text-xs text-neutral-500 mb-0">Reset credentials for any system user.</p>
+                        </div>
                         <form method="POST">
                             <input type="hidden" name="action" value="change_user_password">
-                            
+
                             <div class="mb-3">
-                                <label for="user_id" class="form-label">Select User</label>
-                                <select class="form-select" id="user_id" name="user_id" required>
-                                    <option value="">Choose a user...</option>
+                                <label for="user_id"
+                                    class="text-xs fw-bold text-neutral-500 mb-2 d-block text-uppercase">Select Target
+                                    User</label>
+                                <select class="s3-input" id="user_id" name="user_id" required>
+                                    <option value="" disabled selected>Select a user...</option>
                                     <?php foreach ($allUsers as $user): ?>
                                         <option value="<?= $user['id'] ?>">
-                                            <?= htmlspecialchars($user['username']) ?>
-                                            <?php if ($user['is_admin']): ?>
-                                                <span class="text-danger">(Admin)</span>
-                                            <?php endif; ?>
+                                            <?= htmlspecialchars($user['access_key']) ?>
+                                            <?php if ($user['is_admin']): ?> (Admin)<?php endif; ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            
+
                             <div class="mb-3">
-                                <label for="admin_new_password" class="form-label">New Password</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                                    <input type="password" class="form-control" id="admin_new_password" name="new_password" 
-                                           minlength="6" required>
-                                    <span class="input-group-text password-toggle" onclick="togglePassword('admin_new_password')">
+                                <label for="admin_new_password"
+                                    class="text-xs fw-bold text-neutral-500 mb-2 d-block text-uppercase">New User
+                                    Password</label>
+                                <div class="position-relative">
+                                    <input type="password" class="s3-input pe-5" id="admin_new_password" name="new_password"
+                                        minlength="6" required>
+                                    <button type="button"
+                                        class="position-absolute end-0 top-50 translate-middle-y border-0 bg-transparent px-3 text-neutral-400"
+                                        onclick="togglePassword('admin_new_password')">
                                         <i class="bi bi-eye" id="admin_new_password_toggle"></i>
-                                    </span>
+                                    </button>
                                 </div>
-                                <div class="form-text">Minimum 6 characters</div>
                             </div>
-                            
-                            <div class="mb-3">
-                                <label for="admin_confirm_password" class="form-label">Confirm New Password</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                                    <input type="password" class="form-control" id="admin_confirm_password" name="confirm_password" 
-                                           minlength="6" required>
-                                    <span class="input-group-text password-toggle" onclick="togglePassword('admin_confirm_password')">
+
+                            <div class="mb-4">
+                                <label for="admin_confirm_password"
+                                    class="text-xs fw-bold text-neutral-500 mb-2 d-block text-uppercase">Confirm
+                                    Reset</label>
+                                <div class="position-relative">
+                                    <input type="password" class="s3-input pe-5" id="admin_confirm_password"
+                                        name="confirm_password" minlength="6" required>
+                                    <button type="button"
+                                        class="position-absolute end-0 top-50 translate-middle-y border-0 bg-transparent px-3 text-neutral-400"
+                                        onclick="togglePassword('admin_confirm_password')">
                                         <i class="bi bi-eye" id="admin_confirm_password_toggle"></i>
-                                    </span>
+                                    </button>
                                 </div>
                             </div>
-                            
-                            <button type="submit" class="btn btn-warning">
-                                <i class="bi bi-person-gear"></i> Change User Password
+
+                            <button type="submit"
+                                class="s3-btn s3-btn-outline border-neutral-300 w-100 hover:bg-neutral-50">
+                                Reset User Credentials
                             </button>
                         </form>
                     </div>
                 </div>
-            </div>
             <?php endif; ?>
         </div>
 
-        <!-- Password Requirements -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="bi bi-info-circle"></i> Password Requirements
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <ul class="mb-0">
-                            <li>Minimum 6 characters long</li>
-                            <li>Use a combination of letters, numbers, and symbols for better security</li>
-                            <li>Avoid using common words or personal information</li>
-                            <li>Consider using a password manager to generate and store secure passwords</li>
-                        </ul>
-                    </div>
+        <div class="s3-card bg-neutral-100 border-0 p-4">
+            <h6 class="fw-bold mb-3 d-flex align-items-center">
+                <i class="bi bi-shield-lock me-2"></i> Security Best Practices
+            </h6>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <ul class="text-neutral-600 small mb-0 ps-3">
+                        <li class="mb-2">Use at least 12 characters for production environments.</li>
+                        <li class="mb-2">Avoid reusing secrets across different S3 providers.</li>
+                        <li>Rotate keys every 90 days to minimize breach impact.</li>
+                    </ul>
+                </div>
+                <div class="col-md-6 border-start border-neutral-200">
+                    <p class="text-xs text-neutral-400 mb-0">Changes to your secret key will update both your admin
+                        console password and your S3 API secret key. Active sessions may be terminated after update.</p>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
+
+    <footer class="py-5 text-center text-neutral-400 border-top mt-5 bg-neutral-50">
+        <p class="small mb-0">S3 Storage Admin Security &bull; Managed Infrastructure</p>
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function togglePassword(fieldId) {
             const passwordField = document.getElementById(fieldId);
             const toggleIcon = document.getElementById(fieldId + '_toggle');
-            
             if (passwordField.type === 'password') {
                 passwordField.type = 'text';
                 toggleIcon.className = 'bi bi-eye-slash';
@@ -323,52 +330,27 @@ if ($isAdmin) {
                 toggleIcon.className = 'bi bi-eye';
             }
         }
-        
-        // Password confirmation validation
-        document.getElementById('new_password').addEventListener('input', function() {
-            const newPassword = this.value;
-            const confirmPassword = document.getElementById('confirm_password');
-            
-            if (confirmPassword.value && newPassword !== confirmPassword.value) {
-                confirmPassword.setCustomValidity('Passwords do not match');
-            } else {
-                confirmPassword.setCustomValidity('');
-            }
-        });
-        
-        document.getElementById('confirm_password').addEventListener('input', function() {
-            const newPassword = document.getElementById('new_password').value;
-            const confirmPassword = this.value;
-            
-            if (newPassword !== confirmPassword) {
-                this.setCustomValidity('Passwords do not match');
-            } else {
-                this.setCustomValidity('');
-            }
-        });
-        
-        // Admin password confirmation validation
-        document.getElementById('admin_new_password').addEventListener('input', function() {
-            const newPassword = this.value;
-            const confirmPassword = document.getElementById('admin_confirm_password');
-            
-            if (confirmPassword.value && newPassword !== confirmPassword.value) {
-                confirmPassword.setCustomValidity('Passwords do not match');
-            } else {
-                confirmPassword.setCustomValidity('');
-            }
-        });
-        
-        document.getElementById('admin_confirm_password').addEventListener('input', function() {
-            const newPassword = document.getElementById('admin_new_password').value;
-            const confirmPassword = this.value;
-            
-            if (newPassword !== confirmPassword) {
-                this.setCustomValidity('Passwords do not match');
-            } else {
-                this.setCustomValidity('');
-            }
-        });
+
+        function setupValidation(input1, input2) {
+            const validate = () => {
+                if (input2.value && input1.value !== input2.value) {
+                    input2.setCustomValidity('Passwords do not match');
+                } else {
+                    input2.setCustomValidity('');
+                }
+            };
+            input1.addEventListener('input', validate);
+            input2.addEventListener('input', validate);
+        }
+
+        const np = document.getElementById('new_password');
+        const cp = document.getElementById('confirm_password');
+        if (np && cp) setupValidation(np, cp);
+
+        const anp = document.getElementById('admin_new_password');
+        const acp = document.getElementById('admin_confirm_password');
+        if (anp && acp) setupValidation(anp, acp);
     </script>
 </body>
+
 </html>

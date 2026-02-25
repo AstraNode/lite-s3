@@ -7,39 +7,61 @@
 
 require_once __DIR__ . '/lib/s3-errors.php';
 
-class ObjectStorage {
+class ObjectStorage
+{
     private $pdo;
-    
+
     // Dangerous file extensions that should be blocked
     private static $dangerousExtensions = [
-        'php', 'phtml', 'php3', 'php4', 'php5', 'php7', 'php8', 'phar',
-        'jsp', 'asp', 'aspx', 'exe', 'bat', 'cmd', 'sh', 'ps1', 'cgi',
-        'pl', 'py', 'rb', 'htaccess', 'htpasswd'
+        'php',
+        'phtml',
+        'php3',
+        'php4',
+        'php5',
+        'php7',
+        'php8',
+        'phar',
+        'jsp',
+        'asp',
+        'aspx',
+        'exe',
+        'bat',
+        'cmd',
+        'sh',
+        'ps1',
+        'cgi',
+        'pl',
+        'py',
+        'rb',
+        'htaccess',
+        'htpasswd'
     ];
-    
-    public function __construct() {
+
+    public function __construct()
+    {
         $this->pdo = getDB();
     }
-    
+
     /**
      * Validate object key for security issues
      */
-    private function validateObjectKey($objectKey) {
+    private function validateObjectKey($objectKey)
+    {
         // Check for path traversal attempts
         if (strpos($objectKey, '..') !== false) {
             return ['valid' => false, 'error' => 'InvalidArgument', 'message' => 'Object key contains invalid path traversal'];
         }
-        
+
         // Check for null bytes
         if (strpos($objectKey, "\0") !== false) {
             return ['valid' => false, 'error' => 'InvalidArgument', 'message' => 'Object key contains null bytes'];
         }
-        
+
         // Check key length (S3 limit is 1024 bytes)
         if (strlen($objectKey) > 1024) {
             return ['valid' => false, 'error' => 'KeyTooLongError', 'message' => 'Object key exceeds maximum length of 1024 bytes'];
         }
-        
+
         // Check for dangerous extensions if scanning is enabled
         if (defined('SCAN_UPLOADS') && SCAN_UPLOADS) {
             $extension = strtolower(pathinfo($objectKey, PATHINFO_EXTENSION));
@@ -47,28 +69,55 @@ class ObjectStorage {
                 return ['valid' => false, 'error' => 'InvalidArgument', 'message' => 'File type not allowed for security reasons'];
             }
         }
-        
+
         return ['valid' => true];
     }
-    
+
     /**
      * Scan file content for security threats
      */
-    private function scanFileContent($filePath, $objectKey) {
+    private function scanFileContent($filePath, $objectKey)
+    {
         if (!defined('SCAN_UPLOADS') || !SCAN_UPLOADS) {
             return true;
         }
-        
+
         // Skip scanning for binary files (random data like multipart chunks)
         // Only scan text-based files that could contain executable code
         $extension = strtolower(pathinfo($objectKey, PATHINFO_EXTENSION));
         $textExtensions = ['php', 'phtml', 'htm', 'html', 'js', 'css', 'txt', 'xml', 'json', 'svg'];
-        
+
         // Check if it's a binary file by extension
-        $binaryExtensions = ['bin', 'dat', 'exe', 'dll', 'so', 'zip', 'tar', 'gz', 'rar', '7z', 
-                            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'mp3', 'mp4', 'avi', 'mkv',
-                            'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
-        
+        $binaryExtensions = [
+            'bin',
+            'dat',
+            'exe',
+            'dll',
+            'so',
+            'zip',
+            'tar',
+            'gz',
+            'rar',
+            '7z',
+            'jpg',
+            'jpeg',
+            'png',
+            'gif',
+            'bmp',
+            'webp',
+            'mp3',
+            'mp4',
+            'avi',
+            'mkv',
+            'pdf',
+            'doc',
+            'docx',
+            'xls',
+            'xlsx',
+            'ppt',
+            'pptx'
+        ];
+
         if (in_array($extension, $binaryExtensions)) {
             // Still block dangerous extensions even for binary
             if (in_array($extension, self::$dangerousExtensions)) {
@@ -78,10 +127,10 @@ class ObjectStorage {
             // Skip content scan for known binary formats
             return true;
         }
-        
+
         // Read first 8KB to check for PHP code
         $content = file_get_contents($filePath, false, null, 0, 8192);
-        
+
         // Check if content looks like binary (has null bytes or high ratio of non-printable chars)
         $nullBytes = substr_count($content, "\0");
         if ($nullBytes > 10) {
@@ -89,7 +138,7 @@ class ObjectStorage {
             error_log("Storage: Skipping PHP scan for binary content in: $objectKey");
             return true;
         }
-        
+
         // Check for PHP tags only in text-like content
         $phpPatterns = ['<?php', '<?=', '<script language="php"', '<%'];
         foreach ($phpPatterns as $pattern) {
@@ -98,45 +147,46 @@ class ObjectStorage {
                 return false;
             }
         }
-        
+
         // Check MIME type if restrictions are set
         if (defined('ALLOWED_FILE_TYPES') && ALLOWED_FILE_TYPES !== ['*']) {
             $finfo = new finfo(FILEINFO_MIME_TYPE);
             $mimeType = $finfo->file($filePath);
-            
+
             if (!in_array($mimeType, ALLOWED_FILE_TYPES)) {
                 error_log("Security: Blocked MIME type '$mimeType' for: $objectKey");
                 return false;
             }
         }
-        
+
         return true;
     }
-    
-    public function putObject($bucket, $objectKey, $userId) {
+
+    public function putObject($bucket, $objectKey, $userId)
+    {
         try {
             error_log("Storage: PUT Object - bucket='$bucket', key='$objectKey', user=$userId");
-            
+
             // Validate object key
             $validation = $this->validateObjectKey($objectKey);
             if (!$validation['valid']) {
                 return ['success' => false, 'error' => $validation['message'], 'code' => $validation['error']];
             }
-            
+
             // Ensure bucket exists
             $this->ensureBucketExists($bucket, $userId);
-            
+
             // Get bucket ID
             $stmt = $this->pdo->prepare("SELECT id FROM buckets WHERE name = ?");
             $stmt->execute([$bucket]);
             $bucketData = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$bucketData) {
                 return ['success' => false, 'error' => 'Bucket not found', 'code' => 'NoSuchBucket'];
             }
-            
+
             $bucketId = $bucketData['id'];
-            
+
             // Handle file upload
             if (!isset($_FILES['file']) && !isset($_POST['data'])) {
                 // Stream raw PUT to temp file to support large uploads
@@ -170,26 +220,26 @@ class ObjectStorage {
                     $mimeType = $this->getMimeType($filePath, $objectKey);
                 }
             }
-            
+
             // Security scan the uploaded file
             if (!$this->scanFileContent($filePath, $objectKey)) {
                 @unlink($filePath);
                 return ['success' => false, 'error' => 'File rejected by security scan', 'code' => 'InvalidArgument'];
             }
-            
+
             // Check file size
             $maxSize = defined('MAX_FILE_SIZE') ? MAX_FILE_SIZE : PHP_INT_MAX;
             if ($fileSize > $maxSize) {
                 @unlink($filePath);
                 return ['success' => false, 'error' => 'File too large', 'code' => 'EntityTooLarge'];
             }
-            
+
             // Create storage path
             $storagePath = STORAGE_PATH . $bucket . '/' . $objectKey;
             $storageDir = dirname($storagePath);
-            
+
             error_log("Storage: Creating path '$storagePath' in directory '$storageDir'");
-            
+
             // Ensure the directory exists
             if (!is_dir($storageDir)) {
                 error_log("Storage: Creating directory '$storageDir'");
@@ -199,20 +249,20 @@ class ObjectStorage {
                 }
                 error_log("Storage: Directory created successfully");
             }
-            
+
             // Security scan before moving file
             if (function_exists('scanUploadedFile') && !scanUploadedFile($filePath, $objectKey)) {
                 error_log("Storage: Security scan failed for file: $objectKey");
                 unlink($filePath); // Remove the uploaded file
                 return ['success' => false, 'error' => 'File rejected by security scan'];
             }
-            
+
             // Ensure directory exists
             if (!is_dir($storageDir) && !@mkdir($storageDir, 0755, true)) {
                 error_log("Storage: Failed to create directory: " . $storageDir);
                 return ['success' => false, 'error' => 'Failed to create directory'];
             }
-            
+
             // Atomic replace: write to temp in same dir, then rename over destination
             $tempDest = $storageDir . '/.' . uniqid('tmp_', true);
             $moved = false;
@@ -231,7 +281,7 @@ class ObjectStorage {
                 return ['success' => false, 'error' => 'Failed to stage file'];
             }
             // Validate content length if provided
-            $expectedLen = isset($_SERVER['CONTENT_LENGTH']) ? (int)$_SERVER['CONTENT_LENGTH'] : null;
+            $expectedLen = isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : null;
             if ($expectedLen !== null && $expectedLen >= 0) {
                 $actualLen = filesize($tempDest);
                 if ($actualLen !== $expectedLen) {
@@ -251,11 +301,11 @@ class ObjectStorage {
             }
             @chmod($storagePath, 0644);
             error_log("Storage: File moved successfully");
-            
+
             // Calculate ETag
             $etag = md5_file($storagePath);
             error_log("Storage: Calculated ETag: $etag");
-            
+
             // For large files (>10MB), always create a fresh DB connection
             // MySQL wait_timeout closes idle connections during long uploads
             // Do NOT reuse the old $this->pdo as it's already dead
@@ -266,11 +316,11 @@ class ObjectStorage {
                 if (file_exists($configFile)) {
                     require_once $configFile;
                 }
-                $host = defined('DB_HOST') ? DB_HOST : 'localhost';
-                $name = defined('DB_NAME') ? DB_NAME : 's3_storage';
-                $user = defined('DB_USER') ? DB_USER : 'root';
-                $pass = defined('DB_PASS') ? DB_PASS : '';
-                $port = defined('DB_PORT') ? DB_PORT : '3306';
+                $host = defined('DB_HOST') ? DB_HOST : ($_ENV['DB_HOST'] ?? 'localhost');
+                $name = defined('DB_NAME') ? DB_NAME : ($_ENV['DB_NAME'] ?? 's3_storage');
+                $user = defined('DB_USER') ? DB_USER : ($_ENV['DB_USER'] ?? 'root');
+                $pass = defined('DB_PASS') ? DB_PASS : ($_ENV['DB_PASS'] ?? '');
+                $port = defined('DB_PORT') ? DB_PORT : ($_ENV['DB_PORT'] ?? '3306');
                 $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
                 $this->pdo = new PDO($dsn, $user, $pass, [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -279,7 +329,7 @@ class ObjectStorage {
                 ]);
                 error_log("Storage: Fresh DB connection created successfully");
             }
-            
+
             // Save metadata with retry on failure
             $maxRetries = 3;
             $lastError = null;
@@ -304,32 +354,40 @@ class ObjectStorage {
                     if ($retry < $maxRetries - 1) {
                         // Create completely fresh connection for retry
                         sleep(1); // Brief pause before retry
-                        $this->pdo = new PDO($dsn ?? "mysql:host=localhost;dbname=s3_storage;charset=utf8mb4", 
-                                            $user ?? 'root', $pass ?? '', [
-                            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                            PDO::ATTR_PERSISTENT => false
-                        ]);
+                        $hostFallback = defined('DB_HOST') ? DB_HOST : ($_ENV['DB_HOST'] ?? 'localhost');
+                        $nameFallback = defined('DB_NAME') ? DB_NAME : ($_ENV['DB_NAME'] ?? 's3_storage');
+                        $dsnFallback = "mysql:host=$hostFallback;dbname=$nameFallback;charset=utf8mb4";
+                        $this->pdo = new PDO(
+                            $dsn ?? $dsnFallback,
+                            $user ?? (defined('DB_USER') ? DB_USER : 'root'),
+                            $pass ?? (defined('DB_PASS') ? DB_PASS : ''),
+                            [
+                                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                                PDO::ATTR_PERSISTENT => false
+                            ]
+                        );
                     }
                 }
             }
-            
+
             if ($lastError) {
                 throw $lastError;
             }
-            
+
             return [
                 'success' => true,
                 'etag' => $etag,
                 'size' => $fileSize,
                 'mime_type' => $mimeType
             ];
-            
+
         } catch (Exception $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
-    
-    public function getObject($bucket, $objectKey) {
+
+    public function getObject($bucket, $objectKey)
+    {
         try {
             $stmt = $this->pdo->prepare("SELECT o.*, b.name as bucket_name 
                                        FROM objects o 
@@ -337,17 +395,17 @@ class ObjectStorage {
                                        WHERE b.name = ? AND o.object_key = ?");
             $stmt->execute([$bucket, $objectKey]);
             $object = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$object) {
                 return ['success' => false, 'error' => 'Object not found'];
             }
-            
+
             $filePath = STORAGE_PATH . $bucket . '/' . $objectKey;
-            
+
             if (!file_exists($filePath)) {
                 return ['success' => false, 'error' => 'File not found on disk'];
             }
-            
+
             return [
                 'success' => true,
                 'file_path' => $filePath,
@@ -356,13 +414,14 @@ class ObjectStorage {
                 'etag' => $object['etag'],
                 'created_at' => $object['created_at']
             ];
-            
+
         } catch (Exception $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
-    
-    public function deleteObject($bucket, $objectKey) {
+
+    public function deleteObject($bucket, $objectKey)
+    {
         try {
             $stmt = $this->pdo->prepare("SELECT o.id, o.object_key 
                                        FROM objects o 
@@ -370,29 +429,30 @@ class ObjectStorage {
                                        WHERE b.name = ? AND o.object_key = ?");
             $stmt->execute([$bucket, $objectKey]);
             $object = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$object) {
                 return ['success' => false, 'error' => 'Object not found'];
             }
-            
+
             // Delete file
             $filePath = STORAGE_PATH . $bucket . '/' . $objectKey;
             if (file_exists($filePath)) {
                 unlink($filePath);
             }
-            
+
             // Delete metadata
             $stmt = $this->pdo->prepare("DELETE FROM objects WHERE id = ?");
             $stmt->execute([$object['id']]);
-            
+
             return ['success' => true];
-            
+
         } catch (Exception $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
-    
-    public function listObjects($bucket, $prefix = '', $maxKeys = 1000) {
+
+    public function listObjects($bucket, $prefix = '', $maxKeys = 1000)
+    {
         try {
             $stmt = $this->pdo->prepare("SELECT o.*, b.name as bucket_name 
                                        FROM objects o 
@@ -402,38 +462,40 @@ class ObjectStorage {
                                        LIMIT ?");
             $stmt->execute([$bucket, $prefix . '%', $maxKeys]);
             $objects = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
             $result = [];
             foreach ($objects as $object) {
                 $result[] = [
                     'key' => $object['object_key'],
-                    'size' => (int)$object['size'],
+                    'size' => (int) $object['size'],
                     'last_modified' => $object['created_at'],
                     'etag' => $object['etag'],
                     'mime_type' => $object['mime_type']
                 ];
             }
-            
+
             return $result;
-            
+
         } catch (Exception $e) {
             return [];
         }
     }
-    
-    private function ensureBucketExists($bucketName, $userId) {
+
+    private function ensureBucketExists($bucketName, $userId)
+    {
         $stmt = $this->pdo->prepare("SELECT id FROM buckets WHERE name = ?");
         $stmt->execute([$bucketName]);
-        
+
         if (!$stmt->fetch()) {
             createBucket($bucketName, $userId);
         }
     }
-    
+
     /**
      * Get human-readable upload error message
      */
-    private function getUploadErrorMessage($errorCode) {
+    private function getUploadErrorMessage($errorCode)
+    {
         $errors = [
             UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize directive',
             UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE directive',
@@ -443,11 +505,12 @@ class ObjectStorage {
             UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
             UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the upload',
         ];
-        
+
         return $errors[$errorCode] ?? 'Unknown upload error';
     }
-    
-    private function getMimeType($filePath, $objectKey) {
+
+    private function getMimeType($filePath, $objectKey)
+    {
         // First try finfo for accurate detection
         if (class_exists('finfo')) {
             $finfo = new finfo(FILEINFO_MIME_TYPE);
@@ -456,7 +519,7 @@ class ObjectStorage {
                 return $mime;
             }
         }
-        
+
         // Fallback to mime_content_type
         if (function_exists('mime_content_type')) {
             $mime = mime_content_type($filePath);
@@ -464,7 +527,7 @@ class ObjectStorage {
                 return $mime;
             }
         }
-        
+
         // Fallback to extension-based detection
         $extension = strtolower(pathinfo($objectKey, PATHINFO_EXTENSION));
         $mimeTypes = [
@@ -517,7 +580,7 @@ class ObjectStorage {
             'yaml' => 'text/yaml',
             'yml' => 'text/yaml',
         ];
-        
+
         return $mimeTypes[$extension] ?? 'application/octet-stream';
     }
 }
