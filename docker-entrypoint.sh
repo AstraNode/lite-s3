@@ -25,21 +25,26 @@ if [ "$AUTO_INIT" = "true" ]; then
     if [ -n "$DB_HOST" ]; then
         echo "⏳ Waiting for MySQL at $DB_HOST (User: $DB_USER)..."
         for i in $(seq 1 60); do
-            # Try to ping without suppressing all errors to see what's happening if it fails
-            if mysqladmin ping -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" --connect-timeout=5 >/dev/null 2>&1; then
+            # Try to ping and capture error if it fails
+            ERR_MSG=$(mysqladmin ping -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" --connect-timeout=5 2>&1)
+            if [ $? -eq 0 ]; then
                 echo "✅ MySQL is ready!"
                 break
             fi
             
+            # Show the error message to help the user debug
+            echo "   ❌ Attempt $i: $ERR_MSG"
+            
             # If it's the 10th failure, show a hint
             if [ $i -eq 10 ]; then
-                echo "   💡 Tip: If this takes too long, check 'docker logs s3-mysql' for errors."
+                echo "   💡 Tip: If this is an 'Access denied' error, verify your credentials in docker-compose.yml."
+                echo "   💡 Tip: If it's a 'Can't connect' error, ensure the 'mysql' container is running."
             fi
             
-            echo "   Waiting for database... ($i/60)"
+            echo "   Sleeping 2s before next attempt..."
             sleep 2
             
-            # If we've reached the end, warn the user but continue (might work later)
+            # If we've reached the end, warn the user but continue
             if [ $i -eq 60 ]; then
                 echo "   ⚠️ Warning: MySQL connectivity check timed out. Continuing anyway..."
             fi
